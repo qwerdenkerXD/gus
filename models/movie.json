@@ -1,5 +1,8 @@
 {
-    "id": "Integer",
-    "name": "String",
-    "year": "Integer"
+    "attributes": {
+        "id": "Integer",
+        "name": "String",
+        "year": "Integer"
+    },
+    "primary_key": "id"
 }

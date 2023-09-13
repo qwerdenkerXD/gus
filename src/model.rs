@@ -6,8 +6,14 @@ use std::collections::HashMap;
 use std::cmp::PartialEq;
 
 #[derive(Deserialize, Serialize, PartialEq, Debug)]
+pub enum AttrType {
+    Integer,
+    String,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Debug)]
 pub struct ModelDefinition {
-    attributes: HashMap<String, String>,
+    attributes: HashMap<String, AttrType>,
     primary_key: String
 }
 
@@ -23,7 +29,11 @@ pub fn parse_models(model_path: String) -> Result<Vec<ModelDefinition>>{
         if let Ok(path) = file {
             if let Ok(data) = read_to_string(&path.path()) {
                 if let Ok(model) = parse::<ModelDefinition>(&data) {
-                    models.push(model);
+                    // now validate primary key
+                    match model.attributes.get(&model.primary_key) {
+                        Some(_) => models.push(model),
+                        None => println!("Ignored: {:?} because of invalid primary key", &path.path())
+                    }
                 }
             }
         }
@@ -40,10 +50,10 @@ mod tests {
 
     #[test]
     fn test_parse_models() {
-        let mut attributes: HashMap<String, String> = HashMap::new();
-        attributes.insert("id".to_string(), "Integer".to_string());
-        attributes.insert("name".to_string(), "String".to_string());
-        attributes.insert("year".to_string(), "Integer".to_string());
+        let mut attributes: HashMap<String, AttrType> = HashMap::new();
+        attributes.insert("id".to_string(), AttrType::Integer);
+        attributes.insert("name".to_string(), AttrType::String);
+        attributes.insert("year".to_string(), AttrType::Integer);
 
         let movie_model = ModelDefinition {
             attributes: attributes,
@@ -56,11 +66,11 @@ mod tests {
         // test errors
         if let Ok(_) = parse_models("./not_existing_dir".to_string()) {
             // test a not existing directory
-            assert!(false);
+            assert!(false, "Expected error for not existing models' path");
         }
         if let Ok(_) = parse_models("./models/dummy_dir".to_string()) {
             // test a directory without any valid model definitions
-            assert!(false);
+            assert!(false, "Expected error for no existing valid model definitions");
         }
     }
 }

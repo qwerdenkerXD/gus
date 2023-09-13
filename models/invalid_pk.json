@@ -1,0 +1,8 @@
+{
+    "attributes": {
+        "id": "Integer",
+        "name": "String",
+        "year": "Integer"
+    },
+    "primary_key": "not_existent"
+}

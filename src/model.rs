@@ -11,8 +11,8 @@ pub struct ModelDefinition {
     primary_key: String
 }
 
-pub fn parse_models(model_path: &str) -> Result<Vec<ModelDefinition>>{
-    let model_paths: Result<ReadDir> = read_dir(model_path);
+pub fn parse_models(model_path: String) -> Result<Vec<ModelDefinition>>{
+    let model_paths: Result<ReadDir> = read_dir(&model_path);
     if let Err(_) = model_paths {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
@@ -51,14 +51,14 @@ mod tests {
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models("./models").unwrap(), &expected_result);
+        assert_eq!(&parse_models("./models".to_string()).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models("./not_existing_dir") {
+        if let Ok(_) = parse_models("./not_existing_dir".to_string()) {
             // test a not existing directory
             assert!(false);
         }
-        if let Ok(_) = parse_models("./models/dummy_dir") {
+        if let Ok(_) = parse_models("./models/dummy_dir".to_string()) {
             // test a directory without any valid model definitions
             assert!(false);
         }

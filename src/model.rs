@@ -1,7 +1,7 @@
 use serde_derive::{ Deserialize, Serialize };
 use serde_json::{ from_str as parse };
 use std::fs::{ read_dir, read_to_string, ReadDir };
-use std::io::{ Result, ErrorKind::NotFound };
+use std::io::{ Result, ErrorKind::NotFound, Error };
 use std::collections::HashMap;
 use std::cmp::PartialEq;
 
@@ -11,10 +11,13 @@ pub struct ModelDefinition {
     primary_key: String
 }
 
-pub fn parse_models() -> Result<Vec<ModelDefinition>>{
-    let model_paths: ReadDir = read_dir("./models")?;
+pub fn parse_models(model_path: &str) -> Result<Vec<ModelDefinition>>{
+    let model_paths: Result<ReadDir> = read_dir(model_path);
+    if let Err(_) = model_paths {
+        return Err(Error::new(NotFound, "No valid models defined"));
+    }
     let mut models: Vec<ModelDefinition> = Vec::new();
-    for file in model_paths {
+    for file in model_paths.unwrap() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(path) = file {
@@ -26,7 +29,7 @@ pub fn parse_models() -> Result<Vec<ModelDefinition>>{
         }
     }
     if models.len() == 0 {
-        return Err(std::io::Error::new(NotFound, "No valid models defined"));
+        return Err(Error::new(NotFound, "No valid models defined"));
     }
     Ok(models)
 }
@@ -47,7 +50,17 @@ mod tests {
             primary_key: "id".to_string()
         };
 
-        let expected: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models().unwrap(), &expected);
+        let expected_result: Vec<ModelDefinition> = vec![movie_model];
+        assert_eq!(&parse_models("./models").unwrap(), &expected_result);
+
+        // test errors
+        if let Ok(_) = parse_models("./not_existing_dir") {
+            // test a not existing directory
+            assert!(false);
+        }
+        if let Ok(_) = parse_models("./models/dummy_dir") {
+            // test a directory without any valid model definitions
+            assert!(false);
+        }
     }
 }

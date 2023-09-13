@@ -1,5 +1,5 @@
 use serde_derive::{ Deserialize, Serialize };
-use serde_json::{ from_str as parse, to_string_pretty };
+use serde_json::{ from_str as parse };
 use std::fs::{ read_dir, read_to_string, ReadDir };
 use std::io::{ Result, ErrorKind, Error };
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::path::Path;
 #[serde(untagged)]
 pub enum AttrType {
     Primitive(PrimitiveType),
-    Array(Array)
+    Array(ArrayType)
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -20,14 +20,7 @@ pub enum PrimitiveType {
     Boolean
 }
 
-pub type Array = [ArrayType; 1];
-
-#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
-#[serde(untagged)]
-pub enum ArrayType {
-    Primitive(PrimitiveType),
-    Record(Record)
-}
+pub type ArrayType = [PrimitiveType; 1];
 
 pub type Record = HashMap<String, AttrType>;
 
@@ -87,7 +80,7 @@ mod tests {
         attributes.insert("id".to_string(), AttrType::Primitive(PrimitiveType::Integer));
         attributes.insert("name".to_string(), AttrType::Primitive(PrimitiveType::String));
         attributes.insert("year".to_string(), AttrType::Primitive(PrimitiveType::Integer));
-        attributes.insert("actors".to_string(), AttrType::Array([ArrayType::Primitive(PrimitiveType::String)]));
+        attributes.insert("actors".to_string(), AttrType::Array([PrimitiveType::String]));
         attributes.insert("recommended".to_string(), AttrType::Primitive(PrimitiveType::Boolean));
 
         let movie_model = ModelDefinition {

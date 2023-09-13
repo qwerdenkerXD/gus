@@ -50,20 +50,35 @@ fn create_model(args: cli::CreateModel) {
             .interact_text()
             .unwrap();
 
-        let types = &[
+        let primitives = &[
+            "String",
             "Integer",
-            "String"
+            "Boolean"
         ];
+        let mut types: Vec<&str> = vec!("Array");
+        types.extend(primitives.clone());
         let type_selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Data Type:")
             .default(0)
-            .items(types)
+            .items(&types)
             .interact()
             .unwrap();
-        let selected_type = format!("{:?}", types[type_selection]);
-        let selected_attr_type: model::AttrType = from_str(&selected_type).unwrap();
-        attributes.insert(attr_name.clone(), selected_attr_type);
-        attr_names.push(attr_name);
+        if types[type_selection] == "Array" {
+            let arr_type_selection: usize = Select::with_theme(&ColorfulTheme::default())
+                .with_prompt("Array Type:")
+                .default(0)
+                .items(primitives)
+                .interact()
+                .unwrap();
+            let selected_type = format!("{:?}", primitives[arr_type_selection]);
+            let selected_arr_type: model::AttrType = model::AttrType::Array([from_str(&selected_type).unwrap()]);
+            attributes.insert(attr_name.clone(), selected_arr_type);
+        } else {
+            let selected_type = format!("{:?}", types[type_selection]);
+            let selected_attr_type: model::AttrType = from_str(&selected_type).unwrap();
+            attributes.insert(attr_name.clone(), selected_attr_type);
+            attr_names.push(attr_name);
+        }
 
         println!();
         if !Confirm::with_theme(&ColorfulTheme::default())

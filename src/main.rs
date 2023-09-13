@@ -94,7 +94,7 @@ fn create_model(args: cli::CreateModel) {
     let mut modelspath: PathBuf = PathBuf::new();
     modelspath.push(args.modelspath);
     modelspath.push(model_name);
-    modelspath.set_extension(".json");
+    modelspath.set_extension("json");
 
     let model_file_path: &Path = modelspath.as_path();
 

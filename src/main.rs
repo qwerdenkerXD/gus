@@ -65,15 +65,15 @@ fn create_model(args: cli::CreateModel) {
         attributes.insert(attr_name.clone(), selected_attr_type);
         attr_names.push(attr_name);
 
-        println!("");
+        println!();
         if !Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt("Do you want to add another attribute ?")
+            .with_prompt("Do you want to add another attribute?")
             .interact()
             .unwrap()
         {
             break;
         }
-        println!("");
+        println!();
     }
 
     // define primary key
@@ -99,7 +99,7 @@ fn create_model(args: cli::CreateModel) {
     let model_file_path: &Path = modelspath.as_path();
 
     if let Err(_) = write(model_file_path, &to_string_pretty(&created_model).unwrap()) {
-        println!("{:?}", &to_string_pretty(&created_model).unwrap());
+        println!("{}", &to_string_pretty(&created_model).unwrap());
         eprintln!("unable to write file");
         return;
     }

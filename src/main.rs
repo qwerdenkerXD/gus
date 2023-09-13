@@ -6,7 +6,7 @@ use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm };
 use regex::Regex;
 use std::fmt::{ Display, Formatter, Result as FmtResult };
 use std::collections::HashMap;
-use serde_json::{ from_str, to_string };
+use serde_json::{ from_str, to_string_pretty };
 use std::fs::{ write };
 use std::path::{ Path, PathBuf };
 
@@ -98,8 +98,8 @@ fn create_model(args: cli::CreateModel) {
 
     let model_file_path: &Path = modelspath.as_path();
 
-    if let Err(_) = write(model_file_path, &to_string(&created_model).unwrap()) {
-        println!("{:?}", &to_string(&created_model).unwrap());
+    if let Err(_) = write(model_file_path, &to_string_pretty(&created_model).unwrap()) {
+        println!("{:?}", &to_string_pretty(&created_model).unwrap());
         eprintln!("unable to write file");
         return;
     }

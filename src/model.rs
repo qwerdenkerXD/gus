@@ -1,11 +1,12 @@
 use serde_derive::{ Deserialize, Serialize };
 use serde_json::{ from_str as parse };
 use std::fs::{ read_dir, read_to_string, ReadDir };
-use std::io::{ Result, ErrorKind::NotFound, Error };
+use std::io::{ Result, ErrorKind, Error };
 use std::collections::HashMap;
 use std::cmp::PartialEq;
+use std::path::Path;
 
-#[derive(Deserialize, Serialize, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub enum AttrType {
     Integer,
     String,
@@ -13,14 +14,15 @@ pub enum AttrType {
 
 #[derive(Deserialize, Serialize, PartialEq, Debug)]
 pub struct ModelDefinition {
-    attributes: HashMap<String, AttrType>,
-    primary_key: String
+    pub model_name: String,
+    pub attributes: HashMap<String, AttrType>,
+    pub primary_key: String,
 }
 
-pub fn parse_models(model_path: String) -> Result<Vec<ModelDefinition>>{
-    let model_paths: Result<ReadDir> = read_dir(&model_path);
+pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
+    let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
-        return Err(Error::new(NotFound, "No valid models defined"));
+        return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
     }
     let mut models: Vec<ModelDefinition> = Vec::new();
     for file in model_paths.unwrap() {
@@ -39,7 +41,7 @@ pub fn parse_models(model_path: String) -> Result<Vec<ModelDefinition>>{
         }
     }
     if models.len() == 0 {
-        return Err(Error::new(NotFound, "No valid models defined"));
+        return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
     }
     Ok(models)
 }
@@ -56,19 +58,20 @@ mod tests {
         attributes.insert("year".to_string(), AttrType::Integer);
 
         let movie_model = ModelDefinition {
+            model_name: "movie".to_string(),
             attributes: attributes,
             primary_key: "id".to_string()
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models("./models".to_string()).unwrap(), &expected_result);
+        assert_eq!(&parse_models(Path::new("./models")).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models("./not_existing_dir".to_string()) {
+        if let Ok(_) = parse_models(Path::new("./not_existing_dir")) {
             // test a not existing directory
             assert!(false, "Expected error for not existing models' path");
         }
-        if let Ok(_) = parse_models("./models/dummy_dir".to_string()) {
+        if let Ok(_) = parse_models(Path::new("./models/dummy_dir")) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no existing valid model definitions");
         }

@@ -1,4 +1,5 @@
 {
+    "model_name": "movie",
     "attributes": {
         "id": "Integer",
         "name": "String",

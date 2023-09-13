@@ -54,6 +54,8 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
                         },
                         None => println!("Ignored: {:?} because of invalid primary key", &path.path())
                     }
+                } else {
+                    println!("Ignored: {:?}, no valid model", &path.path())
                 }
             }
         }

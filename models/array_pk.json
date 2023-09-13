@@ -1,0 +1,11 @@
+{
+    "model_name": "movie",
+    "attributes": {
+        "id": ["Integer"],
+        "name": "String",
+        "year": "Integer",
+        "actors": ["String"],
+        "recommended": "Boolean"
+    },
+    "primary_key": "id"
+}

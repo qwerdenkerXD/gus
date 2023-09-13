@@ -40,7 +40,6 @@ pub struct ModelDefinition {
 
 pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     let model_paths: Result<ReadDir> = read_dir(model_path);
-    let mut map: Record = HashMap::new();
     if let Err(_) = model_paths {
         return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
     }
@@ -53,7 +52,13 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
                 if let Ok(model) = parse::<ModelDefinition>(&data) {
                     // now validate primary key
                     match model.attributes.get(&model.primary_key) {
-                        Some(_) => models.push(model),
+                        Some(ty) => {
+                            if let AttrType::Primitive(_) = ty {
+                                 models.push(model);
+                            } else {
+                                println!("Ignored: {:?} because of invalid primary key", &path.path());
+                            }
+                        },
                         None => println!("Ignored: {:?} because of invalid primary key", &path.path())
                     }
                 }
@@ -64,6 +69,12 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
     }
     Ok(models)
+}
+
+
+pub trait ModelHandler {
+    fn add_one(record: Record) -> Result<Record>;
+    fn read_one(id: PrimitiveType) -> Result<Record>;
 }
 
 #[cfg(test)]

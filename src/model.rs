@@ -65,10 +65,10 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
 }
 
 pub trait ModelHandler {
-    pub fn create_one(record: Record) -> Result<Record>;
-    pub fn read_one(id: PrimitiveType) -> Result<Record>;
-    pub fn update_one(id: PrimitiveType, record: Record) -> Result<Record>;
-    pub fn delete_one(id: PrimitiveType) -> Result<Record>;
+    fn create_one(record: Record) -> Result<Record>;
+    fn read_one(id: PrimitiveType) -> Result<Record>;
+    fn update_one(id: PrimitiveType, record: Record) -> Result<Record>;
+    fn delete_one(id: PrimitiveType) -> Result<Record>;
 }
 
 #[cfg(test)]

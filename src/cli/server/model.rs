@@ -58,7 +58,7 @@ pub fn validate_model_definition(definition: &types::ModelDefinition) -> Result<
     Ok(())
 }
 
-fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
+pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
     let parsed_json = parse::<HashMap<String, Value>>(json);
     if let Err(_) = parsed_json {
         return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String is not valid JSON"));
@@ -261,14 +261,14 @@ mod tests {
         };
 
         let expected_result: Vec<types::ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models(Path::new("./src/test_models")).unwrap(), &expected_result);
+        assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models(Path::new("./src/not_existing_dir")) {
+        if let Ok(_) = parse_models(Path::new("./src/cli/server/not_existing_dir")) {
             // test a not existing directory
             assert!(false, "Expected error for not existing models' path");
         }
-        if let Ok(_) = parse_models(Path::new("./src/test_models/dummy_dir")) {
+        if let Ok(_) = parse_models(Path::new("./src/cli/server/test_models/dummy_dir")) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no existing valid model definitions");
         }

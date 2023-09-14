@@ -54,6 +54,7 @@ pub struct ModelDefinition {
     pub required: Vec<AttrName>
 }
 
+// define AttrName with custom Deserializer that validates REST-ful Strings
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct AttrName(pub String);
 

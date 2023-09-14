@@ -33,7 +33,7 @@ fn create_model(args: cli::CreateModel) {
         }
     }
 
-    let mut attributes: HashMap<String, model::AttrType> = HashMap::new();
+    let mut attributes: model::Attributes = HashMap::new();
     let mut attr_names: Vec<String> = vec!();
 
     let model_name: String = Input::with_theme(&ColorfulTheme::default())

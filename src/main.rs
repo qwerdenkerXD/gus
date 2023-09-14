@@ -2,7 +2,8 @@ mod cli;
 mod model;
 
 use clap::Parser;
-use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm };
+use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm, MultiSelect };
+use dialoguer::console::Style;
 use regex::Regex;
 use std::fmt::{ Display, Formatter, Result as FmtResult };
 use std::collections::HashMap;
@@ -34,7 +35,9 @@ fn create_model(args: cli::CreateModel) {
     }
 
     let mut attributes: model::Attributes = HashMap::new();
-    let mut attr_names: Vec<String> = vec!();
+    let mut primary_key_opts: Vec<String> = vec!();
+    let mut required_opts: Vec<String> = vec!();
+    let mut required: Vec<String> = vec!();
 
     let model_name: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("Model Name:")
@@ -77,16 +80,20 @@ fn create_model(args: cli::CreateModel) {
             let selected_type = format!("{:?}", types[type_selection]);
             let selected_attr_type: model::AttrType = from_str(&selected_type).unwrap();
             attributes.insert(attr_name.clone(), selected_attr_type);
-            attr_names.push(attr_name);
+            primary_key_opts.push(attr_name.clone());
         }
 
-        println!();
-        if !Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt("Do you want to add another attribute?")
-            .interact()
-            .unwrap()
-        {
-            break;
+        required_opts.push(attr_name.clone());
+
+        if primary_key_opts.len() > 0 {
+            println!();
+            if !Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt("Do you want to add another attribute?")
+                .interact()
+                .unwrap()
+            {
+                break;
+            }
         }
         println!();
     }
@@ -95,15 +102,32 @@ fn create_model(args: cli::CreateModel) {
     let id_selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("Primary Key:")
         .default(0)
-        .items(&attr_names)
+        .items(&primary_key_opts)
         .interact()
         .unwrap();
-    let primary_key = attr_names[id_selection].to_string();
+    let primary_key = primary_key_opts[id_selection].to_string();
+    required.push(primary_key.clone());
+    required_opts.retain(|s| s != &primary_key);
+
+    println!();
+    let mut multi_select_theme = ColorfulTheme::default();
+    multi_select_theme.checked_item_prefix = Style::new().green().apply_to(" [X]".to_string());
+    multi_select_theme.unchecked_item_prefix = Style::new().red().apply_to(" [ ]".to_string());
+    let required_selection = MultiSelect::with_theme(&multi_select_theme)
+        .with_prompt("Set required attributes")
+        .items(&required_opts[..])
+        .interact()
+        .unwrap();
+
+    for attr_index in required_selection {
+        required.push(required_opts[attr_index].to_string());
+    }
 
     let created_model = model::ModelDefinition {
         model_name: model_name.clone(),
         attributes: attributes.clone(),
-        primary_key: primary_key
+        primary_key: primary_key,
+        required: required
     };
 
     let mut modelspath: PathBuf = PathBuf::new();
@@ -135,7 +159,7 @@ impl Validator<String> for JsonAttrValidator {
     type Err = ValidationError;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
-        let re = Regex::new(r#"^[a-zA-Z_$][a-zA-Z_$0-9]*$"#).unwrap();
+        let re: Regex = model::attr_regex();
         if re.is_match(input) {
             Ok(())
         } else {

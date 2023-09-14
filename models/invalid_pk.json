@@ -5,5 +5,10 @@
         "name": "String",
         "year": "Integer"
     },
-    "primary_key": "not_existent"
+    "primary_key": "not_existent",
+    "required": [
+        "id",
+        "name",
+        "recommended"
+    ]
 }

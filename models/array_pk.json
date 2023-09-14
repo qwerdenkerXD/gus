@@ -7,5 +7,10 @@
         "actors": ["String"],
         "recommended": "Boolean"
     },
-    "primary_key": "id"
+    "primary_key": "id",
+    "required": [
+        "id",
+        "name",
+        "recommended"
+    ]
 }

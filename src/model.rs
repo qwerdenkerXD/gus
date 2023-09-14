@@ -5,6 +5,11 @@ use std::io::{ Result, ErrorKind, Error };
 use std::collections::HashMap;
 use std::cmp::PartialEq;
 use std::path::Path;
+use regex::Regex;
+
+pub fn attr_regex() -> Regex { 
+    Regex::new(r#"^[a-zA-Z_$][a-zA-Z_$0-9]*$"#).unwrap()
+}
 
 pub trait ModelHandler {
     fn create_one(record: Record) -> Result<Record>;
@@ -58,7 +63,8 @@ pub type Attributes = HashMap<String, AttrType>;
 pub struct ModelDefinition {
     pub model_name: String,
     pub attributes: Attributes,
-    pub primary_key: String
+    pub primary_key: String,
+    pub required: Vec<String>
 }
 
 pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
@@ -73,16 +79,9 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         if let Ok(path) = file {
             if let Ok(data) = read_to_string(&path.path()) {
                 if let Ok(model) = parse::<ModelDefinition>(&data) {
-                    // now validate primary key
-                    match model.attributes.get(&model.primary_key) {
-                        Some(ty) => {
-                            if let AttrType::Primitive(_) = ty {
-                                 models.push(model);
-                            } else {
-                                println!("Ignored: {:?} because of invalid primary key", &path.path());
-                            }
-                        },
-                        None => println!("Ignored: {:?} because of invalid primary key", &path.path())
+                    match validate_model_definition(&model) {
+                        Ok(_) => models.push(model),
+                        Err(err) => println!("Ignored: {:?}, {}", &path.path(), err)
                     }
                 } else {
                     println!("Ignored: {:?}, no valid model", &path.path())
@@ -96,11 +95,42 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     Ok(models)
 }
 
+fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
+    // validate attribute names
+    for (attr, _) in &definition.attributes {
+        if !attr_regex().is_match(&attr) {
+            return Err(Error::new(ErrorKind::InvalidInput, format!("invalid attribute name {:?}", &attr)));
+        }
+    }
+
+    // validate primary key
+    if let Some(ty) = definition.attributes.get(&definition.primary_key) {
+        if let AttrType::Array(_) = ty {
+            return Err(Error::new(ErrorKind::InvalidInput, "invalid primary key"));
+        }
+    }
+    else {
+        return Err(Error::new(ErrorKind::InvalidInput, "invalid primary key"));
+    }
+
+    // validate required attributes
+    if !definition.required.contains(&definition.primary_key) {
+        return Err(Error::new(ErrorKind::InvalidInput, "primary key must be required"));
+    }
+    for attr in &definition.required {
+        if !definition.required.contains(&attr) {
+            return Err(Error::new(ErrorKind::InvalidInput, format!("invalid required attribute {:?}", &attr)));
+        }
+    }
+
+    Ok(())
+}
+
 fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     let parsed_json = parse::<HashMap<String, Value>>(json);
     if let Ok(parsed) = parsed_json {
-        for (key, value) in parsed {
-            if model.attributes.get(&key).is_some() {
+        for (key, value) in &parsed {
+            if model.attributes.get(key).is_some() {
                 unimplemented!(); // unimplemented
             } else {
                 return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String doesn't match model definition"));
@@ -144,7 +174,8 @@ mod tests {
         let movie_model = ModelDefinition {
             model_name: "movie".to_string(),
             attributes: attributes,
-            primary_key: "id".to_string()
+            primary_key: "id".to_string(),
+            required: vec!("id".to_string())
         };
         let parsed_record: Record = parse_record(&valid_input, &movie_model).unwrap();
         
@@ -161,10 +192,10 @@ mod tests {
             }
         "#;
         if let Ok(_) = parse_record(&invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing invalid types");;
+            assert!(false, "Expected Error for parsing invalid types");
         }
         if let Ok(_) = parse_record("invalid json", &movie_model) {
-            assert!(false, "Expected Error for parsing invalid JSON input");;
+            assert!(false, "Expected Error for parsing invalid JSON input");
         }
     }
 
@@ -180,7 +211,12 @@ mod tests {
         let movie_model = ModelDefinition {
             model_name: "movie".to_string(),
             attributes: attributes,
-            primary_key: "id".to_string()
+            primary_key: "id".to_string(),
+            required: vec!(
+                "id".to_string(),
+                "name".to_string(),
+                "recommended".to_string()
+            )
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];

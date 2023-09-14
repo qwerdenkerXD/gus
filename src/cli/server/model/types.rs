@@ -1,11 +1,22 @@
-use serde_derive::{ Deserialize, Serialize };
-use std::cmp::PartialEq;
-use std::fmt;
-use serde::{ Deserializer };
 use serde::de;
-use regex::Regex;
-use std::io::{ Result, Error, ErrorKind };
+use std::fmt;
+
+// used traits
+use std::cmp::PartialEq;
+use serde::Deserializer;
+use serde_derive::{
+    Deserialize,
+    Serialize
+};
+
+// used types
 use std::collections::HashMap;
+use regex::Regex;
+use std::io::{
+    Result,
+    Error,
+    ErrorKind
+};
 
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;

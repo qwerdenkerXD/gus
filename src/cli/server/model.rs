@@ -1,10 +1,22 @@
 pub mod types;
 
-use serde_json::{ from_str as parse, Value };
-use std::fs::{ read_dir, read_to_string, ReadDir };
-use std::io::{ Result, ErrorKind, Error };
+// used types
 use std::collections::HashMap;
+use serde_json::Value;
+use std::fs::ReadDir;
 use std::path::Path;
+use std::io::{
+    ErrorKind,
+    Result,
+    Error
+};
+
+// used functions
+use serde_json::from_str as parse;
+use std::fs::{
+    read_to_string,
+    read_dir
+};
 
 pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
     let model_paths: Result<ReadDir> = read_dir(model_path);

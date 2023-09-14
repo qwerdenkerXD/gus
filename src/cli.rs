@@ -1,13 +1,29 @@
 pub mod index;
 mod server;
 
-use clap::Parser;
-use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm, MultiSelect };
+// used types
 use dialoguer::console::Style;
 use std::collections::HashMap;
-use serde_json::{ from_str, to_string_pretty };
-use std::fs::{ write };
-use std::path::{ Path, PathBuf };
+use clap::Parser;
+use dialoguer::{
+    theme::ColorfulTheme,
+    MultiSelect,
+    Validator,
+    Confirm,
+    Select,
+    Input
+};
+use std::path::{
+    PathBuf,
+    Path
+};
+
+// used functions
+use std::fs::write;
+use serde_json::{
+    from_str,
+    to_string_pretty
+};
 
 pub fn get_args() -> index::Cli {
     index::Cli::parse()

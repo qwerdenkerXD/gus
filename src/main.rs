@@ -4,7 +4,6 @@ mod model;
 use clap::Parser;
 use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm, MultiSelect };
 use dialoguer::console::Style;
-use regex::Regex;
 use std::collections::HashMap;
 use serde_json::{ from_str, to_string_pretty };
 use std::fs::{ write };
@@ -33,10 +32,10 @@ fn create_model(args: cli::CreateModel) {
         }
     }
 
-    let mut attributes: model::Attributes = HashMap::new();
+    let mut attributes: model::types::Attributes = HashMap::new();
     let mut primary_key_opts: Vec<String> = vec!();
     let mut required_opts: Vec<String> = vec!();
-    let mut required: Vec<String> = vec!();
+    let mut required: Vec<model::types::AttrName> = vec!();
 
     let model_name: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("Model Name:")
@@ -73,12 +72,12 @@ fn create_model(args: cli::CreateModel) {
                 .interact()
                 .unwrap();
             let selected_type = format!("{:?}", primitives[arr_type_selection]);
-            let selected_arr_type: model::AttrType = model::AttrType::Array([from_str(&selected_type).unwrap()]);
-            attributes.insert(attr_name.clone(), selected_arr_type);
+            let selected_arr_type: model::types::AttrType = model::types::AttrType::Array([from_str(&selected_type).unwrap()]);
+            attributes.insert(model::types::AttrName(attr_name.clone()), selected_arr_type);
         } else {
             let selected_type = format!("{:?}", types[type_selection]);
-            let selected_attr_type: model::AttrType = from_str(&selected_type).unwrap();
-            attributes.insert(attr_name.clone(), selected_attr_type);
+            let selected_attr_type: model::types::AttrType = from_str(&selected_type).unwrap();
+            attributes.insert(model::types::AttrName(attr_name.clone()), selected_attr_type);
             primary_key_opts.push(attr_name.clone());
         }
 
@@ -105,7 +104,7 @@ fn create_model(args: cli::CreateModel) {
         .interact()
         .unwrap();
     let primary_key = primary_key_opts[id_selection].to_string();
-    required.push(primary_key.clone());
+    required.push(model::types::AttrName(primary_key.clone()));
     required_opts.retain(|s| s != &primary_key);
 
     println!();
@@ -121,14 +120,14 @@ fn create_model(args: cli::CreateModel) {
             .unwrap();
 
         for attr_index in required_selection {
-            required.push(required_opts[attr_index].to_string());
+            required.push(model::types::AttrName(required_opts[attr_index].to_string()));
         }
     }
 
-    let created_model = model::ModelDefinition {
-        model_name: model_name.clone(),
+    let created_model = model::types::ModelDefinition {
+        model_name: model::types::AttrName(model_name.clone()),
         attributes: attributes.clone(),
-        primary_key: primary_key,
+        primary_key: model::types::AttrName(primary_key),
         required: required
     };
 
@@ -157,11 +156,9 @@ impl Validator<String> for JsonAttrValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
-        let re: Regex = model::attr_regex();
-        if re.is_match(input) {
-            Ok(())
-        } else {
-            Err("No valid JSON".to_string())
+        match model::types::validate_attr_name(input) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(format!("{}", err))
         }
     }
 }

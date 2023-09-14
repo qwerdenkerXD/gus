@@ -118,7 +118,7 @@ fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
         return Err(Error::new(ErrorKind::InvalidInput, "primary key must be required"));
     }
     for attr in &definition.required {
-        if !definition.required.contains(&attr) {
+        if !definition.attributes.contains_key(attr) {
             return Err(Error::new(ErrorKind::InvalidInput, format!("invalid required attribute {:?}", &attr)));
         }
     }
@@ -171,12 +171,12 @@ mod tests {
         };
         assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with missing primary key attribute in attributes");
 
-        // test primary key of type array
+        // test not required primary key
         let model = &ModelDefinition {
             model_name: "Test".to_string(),
             primary_key: "id".to_string(),
             attributes: HashMap::from([
-                ("id".to_string(), AttrType::Array([PrimitiveType::String]))
+                ("id".to_string(), AttrType::Primitive(PrimitiveType::String))
             ]),
             required: vec!()
         };
@@ -187,7 +187,7 @@ mod tests {
             model_name: "Test".to_string(),
             primary_key: "id".to_string(),
             attributes: HashMap::from([
-                ("id".to_string(), AttrType::Array([PrimitiveType::String]))
+                ("id".to_string(), AttrType::Primitive(PrimitiveType::String))
             ]),
             required: vec!(
                 "id".to_string(),

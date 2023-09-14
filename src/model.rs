@@ -128,23 +128,70 @@ fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
 
 fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     let parsed_json = parse::<HashMap<String, Value>>(json);
-    if let Ok(parsed) = parsed_json {
-        for (key, value) in &parsed {
-            if model.attributes.get(key).is_some() {
-                unimplemented!(); // unimplemented
-            } else {
-                return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String doesn't match model definition"));
-            }
-        }
-    } else {
+    if let Err(_) = parsed_json {
         return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String is not valid JSON"));
     }
+    for (key, value) in &parsed_json.unwrap() {
+        if !model.attributes.get(key).is_some() {
+            return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String doesn't match model definition"));
+        }
+        unimplemented!(); // unimplemented
+    }
+
     Ok(HashMap::new())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_validate_model_definition() {
+        // test primary key of type array
+        let model = &ModelDefinition {
+            model_name: "Test".to_string(),
+            primary_key: "id".to_string(),
+            attributes: HashMap::from([
+                ("id".to_string(), AttrType::Array([PrimitiveType::String]))
+            ]),
+            required: vec!("id".to_string())
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with Array as primary key type");
+
+        // test not existing primary key attribute
+        let model = &ModelDefinition {
+            model_name: "Test".to_string(),
+            primary_key: "id".to_string(),
+            attributes: HashMap::new(),
+            required: vec!("id".to_string())
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with missing primary key attribute in attributes");
+
+        // test primary key of type array
+        let model = &ModelDefinition {
+            model_name: "Test".to_string(),
+            primary_key: "id".to_string(),
+            attributes: HashMap::from([
+                ("id".to_string(), AttrType::Array([PrimitiveType::String]))
+            ]),
+            required: vec!()
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not required primary key");
+
+        // test not existing required attribute
+        let model = &ModelDefinition {
+            model_name: "Test".to_string(),
+            primary_key: "id".to_string(),
+            attributes: HashMap::from([
+                ("id".to_string(), AttrType::Array([PrimitiveType::String]))
+            ]),
+            required: vec!(
+                "id".to_string(),
+                "iDontExist".to_string()
+            )
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not existing required attributes");
+    }
 
     #[test]
     fn test_parse_record() {
@@ -157,25 +204,29 @@ mod tests {
                 "recommended": true
             }
         "#;
-        let mut expected_record: Record = HashMap::new();
-        expected_record.insert("id".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1)));
-        expected_record.insert("name".to_string(),OriginalType::Primitive(OriginalPrimitive::String("Natural Born Killers".to_string())));
-        expected_record.insert("year".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1994)));
-        expected_record.insert("actors".to_string(),OriginalType::Array(OriginalArray::Array(vec!(OriginalPrimitive::String("Woody Harrelson".to_string()), OriginalPrimitive::String("Juliette Lewis".to_string())))));
-        expected_record.insert("recommended".to_string(),OriginalType::Primitive(OriginalPrimitive::Boolean(true)));
-
-        let mut attributes: Attributes = HashMap::new();
-        attributes.insert("id".to_string(), AttrType::Primitive(PrimitiveType::Integer));
-        attributes.insert("name".to_string(), AttrType::Primitive(PrimitiveType::String));
-        attributes.insert("year".to_string(), AttrType::Primitive(PrimitiveType::Integer));
-        attributes.insert("actors".to_string(), AttrType::Array([PrimitiveType::String]));
-        attributes.insert("recommended".to_string(), AttrType::Primitive(PrimitiveType::Boolean));
+        let mut expected_record: Record = HashMap::from([
+            ("id".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1))),
+            ("name".to_string(),OriginalType::Primitive(OriginalPrimitive::String("Natural Born Killers".to_string()))),
+            ("year".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1994))),
+            ("actors".to_string(),OriginalType::Array(OriginalArray::Array(vec!(OriginalPrimitive::String("Woody Harrelson".to_string()), OriginalPrimitive::String("Juliette Lewis".to_string()))))),
+            ("recommended".to_string(),OriginalType::Primitive(OriginalPrimitive::Boolean(true)))
+        ]);
 
         let movie_model = ModelDefinition {
             model_name: "movie".to_string(),
-            attributes: attributes,
+            attributes: HashMap::from([
+                ("id".to_string(), AttrType::Primitive(PrimitiveType::Integer)),
+                ("name".to_string(), AttrType::Primitive(PrimitiveType::String)),
+                ("year".to_string(), AttrType::Primitive(PrimitiveType::Integer)),
+                ("actors".to_string(), AttrType::Array([PrimitiveType::String])),
+                ("recommended".to_string(), AttrType::Primitive(PrimitiveType::Boolean))
+            ]),
             primary_key: "id".to_string(),
-            required: vec!("id".to_string())
+            required: vec!(
+                "id".to_string(),
+                "name".to_string(),
+                "recommended".to_string()
+            )
         };
         let parsed_record: Record = parse_record(&valid_input, &movie_model).unwrap();
         
@@ -194,6 +245,17 @@ mod tests {
         if let Ok(_) = parse_record(&invalid_input, &movie_model) {
             assert!(false, "Expected Error for parsing invalid types");
         }
+        let invalid_input = r#"
+            {
+                "id": "1",
+                "year": "1994",
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": "true"
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input, &movie_model) {
+            assert!(false, "Expected Error for missing required attributes");
+        }
         if let Ok(_) = parse_record("invalid json", &movie_model) {
             assert!(false, "Expected Error for parsing invalid JSON input");
         }
@@ -201,16 +263,15 @@ mod tests {
 
     #[test]
     fn test_parse_models() {
-        let mut attributes: Attributes = HashMap::new();
-        attributes.insert("id".to_string(), AttrType::Primitive(PrimitiveType::Integer));
-        attributes.insert("name".to_string(), AttrType::Primitive(PrimitiveType::String));
-        attributes.insert("year".to_string(), AttrType::Primitive(PrimitiveType::Integer));
-        attributes.insert("actors".to_string(), AttrType::Array([PrimitiveType::String]));
-        attributes.insert("recommended".to_string(), AttrType::Primitive(PrimitiveType::Boolean));
-
         let movie_model = ModelDefinition {
             model_name: "movie".to_string(),
-            attributes: attributes,
+            attributes: HashMap::from([
+                ("id".to_string(), AttrType::Primitive(PrimitiveType::Integer)),
+                ("name".to_string(), AttrType::Primitive(PrimitiveType::String)),
+                ("year".to_string(), AttrType::Primitive(PrimitiveType::Integer)),
+                ("actors".to_string(), AttrType::Array([PrimitiveType::String])),
+                ("recommended".to_string(), AttrType::Primitive(PrimitiveType::Boolean))
+            ]),
             primary_key: "id".to_string(),
             required: vec!(
                 "id".to_string(),

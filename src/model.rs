@@ -329,14 +329,14 @@ mod tests {
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models(Path::new("./models")).unwrap(), &expected_result);
+        assert_eq!(&parse_models(Path::new("./src/test_models")).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models(Path::new("./not_existing_dir")) {
+        if let Ok(_) = parse_models(Path::new("./src/not_existing_dir")) {
             // test a not existing directory
             assert!(false, "Expected error for not existing models' path");
         }
-        if let Ok(_) = parse_models(Path::new("./models/dummy_dir")) {
+        if let Ok(_) = parse_models(Path::new("./src/test_models/dummy_dir")) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no existing valid model definitions");
         }

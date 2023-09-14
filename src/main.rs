@@ -5,7 +5,6 @@ use clap::Parser;
 use dialoguer::{ Select, theme::ColorfulTheme, Input, Validator, Confirm, MultiSelect };
 use dialoguer::console::Style;
 use regex::Regex;
-use std::fmt::{ Display, Formatter, Result as FmtResult };
 use std::collections::HashMap;
 use serde_json::{ from_str, to_string_pretty };
 use std::fs::{ write };

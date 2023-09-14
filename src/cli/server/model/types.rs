@@ -13,9 +13,9 @@ use serde_derive::{
 use std::collections::HashMap;
 use regex::Regex;
 use std::io::{
+    ErrorKind,
     Result,
-    Error,
-    ErrorKind
+    Error
 };
 
 pub type Record = HashMap<AttrName, TrueType>;

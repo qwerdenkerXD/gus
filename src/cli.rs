@@ -25,15 +25,17 @@ use serde_json::{
     to_string_pretty
 };
 
-pub fn get_args() -> index::Cli {
-    index::Cli::parse()
+pub fn run() {
+    let args = index::Cli::parse();
+    match args.command {
+        index::Commands::Start(cmd) => start(cmd),
+        index::Commands::CreateModel(cmd) => create_model(cmd)
+    }
 }
 
 pub fn start(args: index::StartServer) {
     let modelspath: &Path = Path::new(&args.modelspath);
-    if let Err(_) = server::model::parse_models(modelspath) {
-        println!("Warning: No models defined in {}", modelspath.display());
-    }
+    server::start(modelspath);
     unimplemented!();
 }
 

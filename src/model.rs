@@ -141,6 +141,10 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     Ok(HashMap::new())
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,7 +208,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        let mut expected_record: Record = HashMap::from([
+        let expected_record: Record = HashMap::from([
             ("id".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1))),
             ("name".to_string(),OriginalType::Primitive(OriginalPrimitive::String("Natural Born Killers".to_string()))),
             ("year".to_string(),OriginalType::Primitive(OriginalPrimitive::Integer(1994))),
@@ -233,18 +237,62 @@ mod tests {
         assert_eq!(&parsed_record, &expected_record);
 
         // test errors
+        // test String instead of Integer
         let invalid_input = r#"
             {
                 "id": "1",
                 "name": "Natural Born Killers",
                 "year": "1994",
                 "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": true
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input, &movie_model) {
+            assert!(false, "Expected Error for parsing String-Value to Integer");
+        }
+
+        // test String instead of Boolean 
+        let invalid_input = r#"
+            {
+                "id": 1,
+                "name": "Natural Born Killers",
+                "year": 1994,
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
                 "recommended": "true"
             }
         "#;
         if let Ok(_) = parse_record(&invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing invalid types");
+            assert!(false, "Expected Error for parsing String-Value to Boolean");
         }
+
+        // test Integer instead of String 
+        let invalid_input = r#"
+            {
+                "id": 1,
+                "name": 1994,
+                "year": 1994,
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": "true"
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input, &movie_model) {
+            assert!(false, "Expected Error for parsing Integer-Value to String");
+        }
+
+        // test Array(Integer) instead of Array(String)
+        let invalid_input = r#"
+            {
+                "id": 1,
+                "name": "Natural Born Killers",
+                "year": 1994,
+                "actors": [1, 2],
+                "recommended": "true"
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input, &movie_model) {
+            assert!(false, "Expected Error for parsing Array(Integer)-Value to Array(String)");
+        }
+
         let invalid_input = r#"
             {
                 "id": "1",

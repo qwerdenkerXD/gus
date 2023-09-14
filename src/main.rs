@@ -53,13 +53,13 @@ fn create_model(args: cli::CreateModel) {
             .interact_text()
             .unwrap();
 
-        let primitives = &[
+        let primitives = vec!(
             "String",
             "Integer",
             "Boolean"
-        ];
-        let mut types: Vec<&str> = vec!("Array");
-        types.extend(primitives.clone());
+        );
+        let mut types: Vec<&str> = primitives.clone();
+        types.extend(vec!("Array"));
         let type_selection: usize = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Data Type:")
             .default(0)
@@ -70,7 +70,7 @@ fn create_model(args: cli::CreateModel) {
             let arr_type_selection: usize = Select::with_theme(&ColorfulTheme::default())
                 .with_prompt("Array Type:")
                 .default(0)
-                .items(primitives)
+                .items(&primitives)
                 .interact()
                 .unwrap();
             let selected_type = format!("{:?}", primitives[arr_type_selection]);
@@ -114,8 +114,8 @@ fn create_model(args: cli::CreateModel) {
     multi_select_theme.checked_item_prefix = Style::new().green().apply_to(" [X]".to_string());
     multi_select_theme.unchecked_item_prefix = Style::new().red().apply_to(" [ ]".to_string());
     let required_selection = MultiSelect::with_theme(&multi_select_theme)
-        .with_prompt("Set required attributes")
-        .items(&required_opts[..])
+        .with_prompt("Set required attributes:")
+        .items(&required_opts)
         .interact()
         .unwrap();
 
@@ -146,24 +146,15 @@ fn create_model(args: cli::CreateModel) {
 
 struct JsonAttrValidator;
 
-#[derive(Debug)]
-struct ValidationError(String);
-
-impl Display for ValidationError {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl Validator<String> for JsonAttrValidator {
-    type Err = ValidationError;
+    type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
         let re: Regex = model::attr_regex();
         if re.is_match(input) {
             Ok(())
         } else {
-            Err(ValidationError("No valid JSON".to_string()))
+            Err("No valid JSON".to_string())
         }
     }
 }

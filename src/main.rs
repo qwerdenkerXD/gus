@@ -112,14 +112,17 @@ fn create_model(args: cli::CreateModel) {
     let mut multi_select_theme = ColorfulTheme::default();
     multi_select_theme.checked_item_prefix = Style::new().green().apply_to(" [X]".to_string());
     multi_select_theme.unchecked_item_prefix = Style::new().red().apply_to(" [ ]".to_string());
-    let required_selection = MultiSelect::with_theme(&multi_select_theme)
-        .with_prompt("Set required attributes:")
-        .items(&required_opts)
-        .interact()
-        .unwrap();
 
-    for attr_index in required_selection {
-        required.push(required_opts[attr_index].to_string());
+    if required_opts.len() > 0 {
+        let required_selection = MultiSelect::with_theme(&multi_select_theme)
+            .with_prompt("Set required attributes:")
+            .items(&required_opts)
+            .interact()
+            .unwrap();
+
+        for attr_index in required_selection {
+            required.push(required_opts[attr_index].to_string());
+        }
     }
 
     let created_model = model::ModelDefinition {
@@ -128,6 +131,11 @@ fn create_model(args: cli::CreateModel) {
         primary_key: primary_key,
         required: required
     };
+
+    #[cfg(debug_assertions)]
+    {
+        assert!(model::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
+    }
 
     let mut modelspath: PathBuf = PathBuf::new();
     modelspath.push(args.modelspath);

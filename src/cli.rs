@@ -34,8 +34,12 @@ use serde_json::{
 };
 
 pub fn run() {
-    let cli: Cli = index::get_args();
-    match cli.command {
+    let cli: std::io::Result<Cli> = index::get_validated_args();
+    if let Err(err) = cli {
+        println!("{}", err);
+        return;
+    }
+    match cli.unwrap().command {
         index::Commands::Start(args) => server::start(args.port),
         index::Commands::CreateModel(args) => create_model(args)
     }

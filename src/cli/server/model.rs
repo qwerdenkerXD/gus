@@ -21,10 +21,7 @@ use ErrorKind::{
 };
 
 // used functions
-use serde_json::{
-    from_str as parse,
-    to_string as parse_to_string
-};
+use serde_json::from_str as parse;
 use std::fs::{
     read_to_string,
     read_dir
@@ -47,31 +44,51 @@ pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
 }
 
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
+    match parse_models(model_path) {
+        Ok((mut models, duplicates)) => {
+            models.retain(|m| &m.model_name == model_name);
+            if models.len() == 0 {
+                return Err(Error::new(NotFound, format!("model {:?} not found", model_name)));
+            }
+            Ok(models.remove(0))
+        },
+        Err(err) => Err(err),
+    }
+}
+
+pub fn parse_models(model_path: &Path) -> Result<(Vec<ModelDefinition>, bool)>{
     let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
     let mut models: Vec<ModelDefinition> = Vec::new();
+    let mut model_names: Vec<ModelName> = Vec::new();
+    let mut duplicates: Vec<ModelName> = Vec::new();
     for file in model_paths.unwrap() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(path) = file {
             if let Ok(data) = read_to_string(&path.path()) {
                 if let Ok(model) = ModelDefinition::try_from(&data) {
-                    if &model.model_name == model_name {
-                        models.push(model);
+                    if model_names.contains(&model.model_name) && !duplicates.contains(&model.model_name) {
+                        duplicates.push(model.model_name.clone());
                     }
+                    model_names.push(model.model_name.clone());
+                    models.push(model);
                 }
             }
         }
     }
-    if models.len() > 1 {
-        return Err(Error::new(ErrorKind::Other, format!("Duplicate model name {:?}, so not using it", &parse_to_string(model_name).unwrap())));
+
+    // remove duplicates
+    for dup in &duplicates {
+        models.retain(|m| &m.model_name != dup);
     }
+
     if models.len() == 0 {
-        return Err(Error::new(NotFound, "No matching valid models defined"));
+        return Err(Error::new(NotFound, "No valid models defined"));
     }
-    Ok(models[0].clone())
+    Ok((models, duplicates.len() > 0))
 }
 
 fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
@@ -129,6 +146,10 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
 
 fn check_constraints(record: &Record) -> Result<()> {
     Ok(())
+}
+
+pub fn validate_args_for_model(cli: index::Cli) -> Result<index::Cli> {
+    todo!("need to check for duplicates")
 }
 
 
@@ -302,6 +323,42 @@ mod tests {
         if let Ok(_) = parse_model(Path::new("./src/cli/server/test_models/dummy_dir"), &ModelName(AttrName("movie".to_string()))) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no matching model definitions");
+        }
+    }
+
+    #[test]
+    fn test_parse_models() {
+        let movie_model = ModelDefinition {
+            model_name: ModelName(AttrName("movie".to_string())),
+            attributes: HashMap::from([
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
+                (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("actors".to_string()), AttrType::Array([PrimitiveType::String])),
+                (AttrName("recommended".to_string()), AttrType::Primitive(PrimitiveType::Boolean))
+            ]),
+            primary_key: AttrName("id".to_string()),
+            required: vec!(
+                AttrName("id".to_string()),
+                AttrName("name".to_string()),
+                AttrName("recommended".to_string())
+            ),
+            constraints: None
+        };
+
+        let expected_result: Vec<ModelDefinition> = vec![movie_model];
+        assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap().0, &expected_result);
+        assert!(parse_models(Path::new("./src/cli/server/test_models")).unwrap().1,
+                "Expected Error when parsing valid models with duplicate name"); 
+
+        // test errors
+        if let Ok(_) = parse_models(Path::new("./src/cli/server/not_existing_dir")) {
+            // test a not existing directory
+            assert!(false, "Expected error for not existing models' path");
+        }
+        if let Ok(_) = parse_models(Path::new("./src/cli/server/test_models/dummy_dir")) {
+            // test a directory without any valid model definitions
+            assert!(false, "Expected error for no existing valid model definitions");
         }
     }
 }

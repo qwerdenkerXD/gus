@@ -1,5 +1,13 @@
-use crate::cli::server::model::StorageTypes;
+use crate::cli::server::model::{
+    StorageTypes,
+    validate_args_for_model
+};
 use std::path::PathBuf;
+use std::io::{
+    ErrorKind,
+    Result,
+    Error
+};
 use clap::{
     Parser,
     Subcommand,
@@ -30,7 +38,7 @@ pub struct StartServer {
     pub port: u16,
     #[clap(short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf,
-    #[clap(short, long, name = "STORAGE_TYPE", default_value = "Json", help = "The path to the model definitions")]
+    #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
     pub storage_type: StorageTypes,
     #[clap(short, long, default_value = "./data.<STORAGE_TYPE>.gus", value_name = "FILE", value_hint = FilePath, help = "The path to the storage file")]
     pub data: PathBuf
@@ -44,19 +52,52 @@ pub struct CreateModel {
 }
 
 pub fn get_args() -> Cli {
-    Cli::parse()
+    let cli = Cli::parse();
+    #[cfg(test)]
+    {
+        let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
+    }
+    cli
+}
+
+pub fn get_validated_args() -> Result<Cli> {
+    let cli = Cli::parse();
+    #[cfg(test)]
+    {
+        let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
+    }
+    validate_args(cli)
 }
 
 pub fn get_start_args() -> Option<StartServer> {
-    if let Commands::Start(args) = Cli::parse().command {
+    if let Commands::Start(args) = get_args().command {
         return Some(args);
     }
     None
 }
 
 pub fn get_create_model_args() -> Option<CreateModel> {
-    if let Commands::CreateModel(args) = Cli::parse().command {
+    if let Commands::CreateModel(args) = get_args().command {
         return Some(args);
     }
     None
+}
+
+fn validate_args(cli: Cli) -> Result<Cli> {
+    match &cli.command {
+        Commands::Start(start) => {
+            if !start.modelspath.as_path().exists() {
+                return Err(Error::new(ErrorKind::InvalidInput, "models' path doesn't exist"));
+            }
+            if !start.data.as_path().exists() {
+                return Err(Error::new(ErrorKind::InvalidInput, "storage file's path doesn't exist"));
+            }
+        },
+        Commands::CreateModel(create) => {
+            if !create.modelspath.as_path().exists() {
+                return Err(Error::new(ErrorKind::InvalidInput, "models' path doesn't exist"));
+            }
+        }
+    }
+    validate_args_for_model(cli)
 }

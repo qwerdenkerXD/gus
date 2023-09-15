@@ -6,5 +6,5 @@ pub fn start(model_path: &Path) {
     if let Err(_) = model::parse_models(model_path) {
         println!("Warning: No models defined in {}", model_path.display());
     }
-    unimplemented!();
+    todo!();
 }

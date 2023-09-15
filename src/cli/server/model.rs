@@ -11,7 +11,7 @@ use std::io::{
     Error
 };
 use ErrorKind::{
-    InvalidInput,
+    InvalidData,
     NotFound
 };
 
@@ -33,13 +33,9 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(path) = file {
             if let Ok(data) = read_to_string(&path.path()) {
-                if let Ok(model) = parse::<types::ModelDefinition>(&data) {
-                    match validate_model_definition(&model) {
-                        Ok(_) => models.push(model),
-                        Err(err) => println!("Ignored: {:?}, {}", &path.path(), err)
-                    }
-                } else {
-                    println!("Ignored: {:?}, no valid model", &path.path())
+                match types::ModelDefinition::try_from(&data) {
+                    Ok(model) => models.push(model),
+                    Err(err) => println!("Ignored: {:?}, {}", &path.path(), err)
                 }
             }
         }
@@ -50,40 +46,16 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
     Ok(models)
 }
 
-pub fn validate_model_definition(definition: &types::ModelDefinition) -> Result<()> {
-    // validate primary key
-    if let Some(ty) = definition.attributes.get(&definition.primary_key) {
-        if let types::AttrType::Array(_) = ty {
-            return Err(Error::new(InvalidInput, "invalid primary key"));
-        }
-    }
-    else {
-        return Err(Error::new(InvalidInput, "invalid primary key"));
-    }
-
-    // validate required attributes
-    if !definition.required.contains(&definition.primary_key) {
-        return Err(Error::new(InvalidInput, "primary key must be required"));
-    }
-    for attr in &definition.required {
-        if !definition.attributes.contains_key(attr) {
-            return Err(Error::new(InvalidInput, format!("invalid required attribute {:?}", &attr)));
-        }
-    }
-
-    Ok(())
-}
-
 pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
     let parsed_json = parse::<HashMap<types::AttrName, Value>>(json);
     if let Err(_) = parsed_json {
-        return Err(Error::new(InvalidInput, "Given JSON-String is not valid JSON"));
+        return Err(Error::new(InvalidData, "Given JSON-String is not valid JSON"));
     }
 
     // check for missing required attributes
     for key in &model.required {
         if !parsed_json.as_ref().unwrap().contains_key(key) {
-            return Err(Error::new(InvalidInput, ""));
+            return Err(Error::new(InvalidData, ""));
         };
     }
 
@@ -97,7 +69,7 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
                 types::AttrType::Primitive(prim_type) => {
                     match types::to_true_prim_type(&value, &prim_type, &is_required) {
                         Ok(true_prim_value) => record.insert(key, types::TrueType::Primitive(true_prim_value)),
-                        Err(err) => return Err(Error::new(InvalidInput, format!("Wrong type of attribute {:?}, {}", key, err)))
+                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key, err)))
                     };
                 },
                 types::AttrType::Array(arr_type) => {
@@ -107,17 +79,17 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
                             for val in arr {
                                 match types::to_true_prim_type(val, &arr_type[0], &is_required) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value),
-                                    Err(err) => return Err(Error::new(InvalidInput, format!("Wrong type of array attribute {:?}, {}", key, err)))
+                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key, err)))
                                 };
                             }
                             record.insert(key, types::TrueType::Array(true_arr));
                         },
-                        None => return Err(Error::new(InvalidInput, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
+                        None => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
                     };
                 },
             }
         } else {
-            return Err(Error::new(InvalidInput, format!("Unknown attribute: {:?}", key)));
+            return Err(Error::new(InvalidData, format!("Unknown attribute: {:?}", key)));
         }
     }
 
@@ -138,58 +110,6 @@ fn check_constraints(record: &types::Record) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_validate_model_definition() {
-        // test primary key of type array
-        let model = &types::ModelDefinition {
-            model_name: types::AttrName("Test".to_string()),
-            primary_key: types::AttrName("id".to_string()),
-            attributes: HashMap::from([
-                (types::AttrName("id".to_string()), types::AttrType::Array([types::PrimitiveType::String]))
-            ]),
-            required: vec!(types::AttrName("id".to_string())),
-            constraints: None
-        };
-        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with Array as primary key type");
-
-        // test not existing primary key attribute
-        let model = &types::ModelDefinition {
-            model_name: types::AttrName("Test".to_string()),
-            primary_key: types::AttrName("id".to_string()),
-            attributes: HashMap::new(),
-            required: vec!(types::AttrName("id".to_string())),
-            constraints: None
-        };
-        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with missing primary key attribute in attributes");
-
-        // test not required primary key
-        let model = &types::ModelDefinition {
-            model_name: types::AttrName("Test".to_string()),
-            primary_key: types::AttrName("id".to_string()),
-            attributes: HashMap::from([
-                (types::AttrName("id".to_string()), types::AttrType::Primitive(types::PrimitiveType::String))
-            ]),
-            required: vec!(),
-            constraints: None
-        };
-        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not required primary key");
-
-        // test not existing required attribute
-        let model = &types::ModelDefinition {
-            model_name: types::AttrName("Test".to_string()),
-            primary_key: types::AttrName("id".to_string()),
-            attributes: HashMap::from([
-                (types::AttrName("id".to_string()), types::AttrType::Primitive(types::PrimitiveType::String))
-            ]),
-            required: vec!(
-                types::AttrName("id".to_string()),
-                types::AttrName("iDontExist".to_string())
-            ),
-            constraints: None
-        };
-        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not existing required attributes");
-    }
 
     #[test]
     fn test_parse_record() {

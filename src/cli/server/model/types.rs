@@ -4,6 +4,7 @@ use std::fmt;
 // used traits
 use std::cmp::PartialEq;
 use serde::Deserializer;
+use std::convert::TryFrom;
 use serde_json::Value;
 use serde_derive::{
     Deserialize,
@@ -18,6 +19,9 @@ use std::io::{
     Result,
     Error
 };
+
+// used functions
+use serde_json::from_str as parse;
 
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
@@ -90,6 +94,45 @@ pub struct ModelDefinition {
     pub constraints: Option<HashMap<AttrName, Constraints>>
 }
 
+impl TryFrom<&String> for ModelDefinition {
+    type Error = Error;
+
+    fn try_from(json: &String) -> core::result::Result<Self, Self::Error> {
+        if let Ok(model) = parse::<ModelDefinition>(&json) {
+            match validate_model_definition(&model) {
+                Ok(_) => Ok(model),
+                Err(err) => Err(err)
+            }
+        } else {
+            Err(Error::new(ErrorKind::InvalidData, "no valid JSON"))
+        }
+    }
+}
+
+pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
+    // validate primary key
+    if let Some(ty) = definition.attributes.get(&definition.primary_key) {
+        if let AttrType::Array(_) = ty {
+            return Err(Error::new(ErrorKind::InvalidData, "invalid primary key"));
+        }
+    }
+    else {
+        return Err(Error::new(ErrorKind::InvalidData, "invalid primary key"));
+    }
+
+    // validate required attributes
+    if !definition.required.contains(&definition.primary_key) {
+        return Err(Error::new(ErrorKind::InvalidData, "primary key must be required"));
+    }
+    for attr in &definition.required {
+        if !definition.attributes.contains_key(attr) {
+            return Err(Error::new(ErrorKind::InvalidData, format!("invalid required attribute {:?}", &attr)));
+        }
+    }
+
+    Ok(())
+}
+
 // define AttrName with custom Deserializer that validates REST-ful Strings
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct AttrName(pub String);
@@ -132,13 +175,13 @@ pub fn validate_attr_name(name: &String) -> std::io::Result<()> {
     if camel_case.is_match(name) || snake_case.is_match(name) || spinal_case.is_match(name) {
         return Ok(());
     }
-    Err(Error::new(ErrorKind::InvalidInput, "Attribute name is not alphabetic in camelCase, snake_case or spinal-case"))
+    Err(Error::new(ErrorKind::InvalidData, "Attribute name is not alphabetic in camelCase, snake_case or spinal-case"))
 }
 
 pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {
     if let Some(_) = value.as_null() {
         if *is_required {
-            return Err(Error::new(ErrorKind::InvalidInput, "it is required, got: null"));
+            return Err(Error::new(ErrorKind::InvalidData, "it is required, got: null"));
         } else {
             return Ok(TruePrimitiveType::Null(Some(())));
         }
@@ -147,26 +190,86 @@ pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required:
         PrimitiveType::Integer => {
             match value.as_i64() {
                 Some(val) => Ok(TruePrimitiveType::Integer(val)),
-                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Integer\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Integer\""))
             }
         },
         PrimitiveType::String => {
             match value.as_str() {
                 Some(val) => Ok(TruePrimitiveType::String(val.to_string())),
-                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"String\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"String\""))
             }
         },
         PrimitiveType::Boolean => {
             match value.as_bool() {
                 Some(val) => Ok(TruePrimitiveType::Boolean(val)),
-                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Boolean\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Boolean\""))
             }
         },
         PrimitiveType::Float => {
             match value.as_f64() {
                 Some(val) => Ok(TruePrimitiveType::Float(val)),
-                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Float\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Float\""))
             }
         },
+    }
+}
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_model_definition() {
+        // test primary key of type array
+        let model = &ModelDefinition {
+            model_name: AttrName("Test".to_string()),
+            primary_key: AttrName("id".to_string()),
+            attributes: HashMap::from([
+                (AttrName("id".to_string()), AttrType::Array([PrimitiveType::String]))
+            ]),
+            required: vec!(AttrName("id".to_string())),
+            constraints: None
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with Array as primary key type");
+
+        // test not existing primary key attribute
+        let model = &ModelDefinition {
+            model_name: AttrName("Test".to_string()),
+            primary_key: AttrName("id".to_string()),
+            attributes: HashMap::new(),
+            required: vec!(AttrName("id".to_string())),
+            constraints: None
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with missing primary key attribute in attributes");
+
+        // test not required primary key
+        let model = &ModelDefinition {
+            model_name: AttrName("Test".to_string()),
+            primary_key: AttrName("id".to_string()),
+            attributes: HashMap::from([
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
+            ]),
+            required: vec!(),
+            constraints: None
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not required primary key");
+
+        // test not existing required attribute
+        let model = &ModelDefinition {
+            model_name: AttrName("Test".to_string()),
+            primary_key: AttrName("id".to_string()),
+            attributes: HashMap::from([
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
+            ]),
+            required: vec!(
+                AttrName("id".to_string()),
+                AttrName("iDontExist".to_string())
+            ),
+            constraints: None
+        };
+        assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not existing required attributes");
     }
 }

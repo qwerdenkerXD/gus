@@ -40,7 +40,8 @@ pub enum AttrType {
 pub enum PrimitiveType {
     Integer,
     String,
-    Boolean
+    Boolean,
+    Float
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -55,7 +56,9 @@ pub enum TrueType {
 pub enum TruePrimitiveType {
     Integer(i64),
     String(String),
-    Boolean(bool)
+    Boolean(bool),
+    Float(f64),
+    Null(Option<()>)
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug)]
@@ -111,7 +114,14 @@ pub fn validate_attr_name(name: &String) -> std::io::Result<()> {
     Err(Error::new(ErrorKind::InvalidInput, "Attribute name is not alphabetic in camelCase, snake_case or spinal-case"))
 }
 
-pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType) -> Result<TruePrimitiveType> {
+pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {
+    if let Some(_) = value.as_null() {
+        if *is_required {
+            return Err(Error::new(ErrorKind::InvalidInput, "it is required, got: null"));
+        } else {
+            return Ok(TruePrimitiveType::Null(Some(())));
+        }
+    }
     match model_type {
         PrimitiveType::Integer => {
             match value.as_i64() {
@@ -129,6 +139,12 @@ pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType) -> Result<Tr
             match value.as_bool() {
                 Some(val) => Ok(TruePrimitiveType::Boolean(val)),
                 None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Boolean\""))
+            }
+        },
+        PrimitiveType::Float => {
+            match value.as_f64() {
+                Some(val) => Ok(TruePrimitiveType::Float(val)),
+                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Float\""))
             }
         },
     }

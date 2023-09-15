@@ -10,6 +10,10 @@ use std::io::{
     Result,
     Error
 };
+use ErrorKind::{
+    InvalidInput,
+    NotFound
+};
 
 // used functions
 use serde_json::from_str as parse;
@@ -21,7 +25,7 @@ use std::fs::{
 pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
     let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
-        return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
+        return Err(Error::new(NotFound, "No valid models defined"));
     }
     let mut models: Vec<types::ModelDefinition> = Vec::new();
     for file in model_paths.unwrap() {
@@ -41,7 +45,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
         }
     }
     if models.len() == 0 {
-        return Err(Error::new(ErrorKind::NotFound, "No valid models defined"));
+        return Err(Error::new(NotFound, "No valid models defined"));
     }
     Ok(models)
 }
@@ -50,20 +54,20 @@ pub fn validate_model_definition(definition: &types::ModelDefinition) -> Result<
     // validate primary key
     if let Some(ty) = definition.attributes.get(&definition.primary_key) {
         if let types::AttrType::Array(_) = ty {
-            return Err(Error::new(ErrorKind::InvalidInput, "invalid primary key"));
+            return Err(Error::new(InvalidInput, "invalid primary key"));
         }
     }
     else {
-        return Err(Error::new(ErrorKind::InvalidInput, "invalid primary key"));
+        return Err(Error::new(InvalidInput, "invalid primary key"));
     }
 
     // validate required attributes
     if !definition.required.contains(&definition.primary_key) {
-        return Err(Error::new(ErrorKind::InvalidInput, "primary key must be required"));
+        return Err(Error::new(InvalidInput, "primary key must be required"));
     }
     for attr in &definition.required {
         if !definition.attributes.contains_key(attr) {
-            return Err(Error::new(ErrorKind::InvalidInput, format!("invalid required attribute {:?}", &attr)));
+            return Err(Error::new(InvalidInput, format!("invalid required attribute {:?}", &attr)));
         }
     }
 
@@ -73,16 +77,27 @@ pub fn validate_model_definition(definition: &types::ModelDefinition) -> Result<
 pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
     let parsed_json = parse::<HashMap<types::AttrName, Value>>(json);
     if let Err(_) = parsed_json {
-        return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String is not valid JSON"));
+        return Err(Error::new(InvalidInput, "Given JSON-String is not valid JSON"));
     }
+
+    // check for missing required attributes
+    for key in &model.required {
+        if !parsed_json.as_ref().unwrap().contains_key(key) {
+            return Err(Error::new(InvalidInput, ""));
+        };
+    }
+
     let mut record: types::Record = HashMap::new();
+
+    // convert parsed_json to Record
     for (key, value) in parsed_json.unwrap() {
+        let is_required: bool = model.required.contains(&key);
         if let Some(ty) = model.attributes.get(&key) {
             match ty {
                 types::AttrType::Primitive(prim_type) => {
-                    match types::to_true_prim_type(&value, &prim_type) {
+                    match types::to_true_prim_type(&value, &prim_type, &is_required) {
                         Ok(true_prim_value) => record.insert(key, types::TrueType::Primitive(true_prim_value)),
-                        Err(err) => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of attribute {:?}, {}", key, err)))
+                        Err(err) => return Err(Error::new(InvalidInput, format!("Wrong type of attribute {:?}, {}", key, err)))
                     };
                 },
                 types::AttrType::Array(arr_type) => {
@@ -90,19 +105,19 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
                         Some(arr) => {
                             let mut true_arr: Vec<types::TruePrimitiveType> = vec!();
                             for val in arr {
-                                match types::to_true_prim_type(val, &arr_type[0]) {
+                                match types::to_true_prim_type(val, &arr_type[0], &is_required) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value),
-                                    Err(err) => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of array attribute {:?}, {}", key, err)))
+                                    Err(err) => return Err(Error::new(InvalidInput, format!("Wrong type of array attribute {:?}, {}", key, err)))
                                 };
                             }
                             record.insert(key, types::TrueType::Array(true_arr));
                         },
-                        None => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
+                        None => return Err(Error::new(InvalidInput, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
                     };
                 },
             }
         } else {
-            return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String doesn't match model definition"));
+            return Err(Error::new(InvalidInput, "Given JSON-String doesn't match model definition"));
         }
     }
 
@@ -240,7 +255,7 @@ mod tests {
                 "name": 1994,
                 "year": 1994,
                 "actors": ["Woody Harrelson", "Juliette Lewis"],
-                "recommended": "true"
+                "recommended": true
             }
         "#;
         if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
@@ -254,25 +269,39 @@ mod tests {
                 "name": "Natural Born Killers",
                 "year": 1994,
                 "actors": [1, 2],
-                "recommended": "true"
+                "recommended": true
             }
         "#;
         if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
             assert!(false, "Expected Error for parsing Array(Integer)-Value to Array(String)");
         }
 
-        // can't be deserialized -> either turn TrueType to Option<TrueType> in Record or add None (null in JSON) to TrueType or both
-        // let invalid_input = r#"
-        //     {
-        //         "id": "1",
-        //         "year": "1994",
-        //         "actors": ["Woody Harrelson", "Juliette Lewis"],
-        //         "recommended": "true"
-        //     }
-        // "#;
-        // if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
-        //     assert!(false, "Expected Error for missing required attributes");
-        // }
+        // test missing attribute
+        let invalid_input = r#"
+            {
+                "id": 1,
+                "year": 1994,
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": true
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+            assert!(false, "Expected Error for missing required attributes");
+        }
+
+        // test null value
+        let invalid_input = r#"
+            {
+                "id": "1",
+                "name": null,
+                "year": "1994",
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": "true"
+            }
+        "#;
+        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+            assert!(false, "Expected Error for null-valued required attributes");
+        }
         if let Ok(_) = parse_record(&"invalid json".to_string(), &movie_model) {
             assert!(false, "Expected Error for parsing invalid JSON input");
         }

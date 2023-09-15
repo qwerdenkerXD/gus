@@ -30,7 +30,7 @@ pub struct StartServer {
     pub port: u16,
     #[clap(short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf,
-    #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
+    #[clap(short, long, name = "STORAGE_TYPE", default_value = "Json", help = "The path to the model definitions")]
     pub storage_type: StorageTypes,
     #[clap(short, long, default_value = "./data.<STORAGE_TYPE>.gus", value_name = "FILE", value_hint = FilePath, help = "The path to the storage file")]
     pub data: PathBuf

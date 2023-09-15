@@ -9,12 +9,12 @@ use std::io::Result;
 
 #[derive(Debug, clap::ValueEnum, Clone)]
 pub enum StorageTypes {
-    json
+    Json
 }
 
 pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName, storage_file: &PathBuf) -> impl StorageHandler {
     match storage_type {
-        StorageTypes::json => JsonStorageHandler {
+        StorageTypes::Json => JsonStorageHandler {
             model_name: model_name.clone(),
             storage_file: storage_file.clone()
         },

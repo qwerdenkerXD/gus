@@ -61,12 +61,33 @@ pub enum TruePrimitiveType {
     Null(Option<()>)
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub enum Constraints {
+    Integer(IntConstraint),
+    String(StrConstraint),
+    Boolean(BoolConstraint),
+    Float(FloatConstraint)
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct IntConstraint;
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct StrConstraint;
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct BoolConstraint;
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct FloatConstraint;
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ModelDefinition {
     pub model_name: AttrName,
     pub attributes: Attributes,
     pub primary_key: AttrName,
-    pub required: Vec<AttrName>
+    pub required: Vec<AttrName>,
+    pub constraints: Option<HashMap<AttrName, Constraints>>
 }
 
 // define AttrName with custom Deserializer that validates REST-ful Strings

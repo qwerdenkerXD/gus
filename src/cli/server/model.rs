@@ -117,11 +117,18 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
                 },
             }
         } else {
-            return Err(Error::new(InvalidInput, "Given JSON-String doesn't match model definition"));
+            return Err(Error::new(InvalidInput, format!("Unknown attribute: {:?}", key)));
         }
     }
 
+    if let Err(err) = check_constraints(&record) {
+        return Err(err);
+    }
     Ok(record)
+}
+
+fn check_constraints(record: &types::Record) -> Result<()> {
+    Ok(())
 }
 
 
@@ -141,7 +148,8 @@ mod tests {
             attributes: HashMap::from([
                 (types::AttrName("id".to_string()), types::AttrType::Array([types::PrimitiveType::String]))
             ]),
-            required: vec!(types::AttrName("id".to_string()))
+            required: vec!(types::AttrName("id".to_string())),
+            constraints: None
         };
         assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with Array as primary key type");
 
@@ -150,7 +158,8 @@ mod tests {
             model_name: types::AttrName("Test".to_string()),
             primary_key: types::AttrName("id".to_string()),
             attributes: HashMap::new(),
-            required: vec!(types::AttrName("id".to_string()))
+            required: vec!(types::AttrName("id".to_string())),
+            constraints: None
         };
         assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with missing primary key attribute in attributes");
 
@@ -161,7 +170,8 @@ mod tests {
             attributes: HashMap::from([
                 (types::AttrName("id".to_string()), types::AttrType::Primitive(types::PrimitiveType::String))
             ]),
-            required: vec!()
+            required: vec!(),
+            constraints: None
         };
         assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not required primary key");
 
@@ -175,7 +185,8 @@ mod tests {
             required: vec!(
                 types::AttrName("id".to_string()),
                 types::AttrName("iDontExist".to_string())
-            )
+            ),
+            constraints: None
         };
         assert!(validate_model_definition(model).is_err(), "Expected Error for model definitions with not existing required attributes");
     }
@@ -213,7 +224,8 @@ mod tests {
                 types::AttrName("id".to_string()),
                 types::AttrName("name".to_string()),
                 types::AttrName("recommended".to_string())
-            )
+            ),
+            constraints: None
         };
         let parsed_record: types::Record = parse_record(&valid_input.to_string(), &movie_model).unwrap();
         
@@ -323,7 +335,8 @@ mod tests {
                 types::AttrName("id".to_string()),
                 types::AttrName("name".to_string()),
                 types::AttrName("recommended".to_string())
-            )
+            ),
+            constraints: None
         };
 
         let expected_result: Vec<types::ModelDefinition> = vec![movie_model];

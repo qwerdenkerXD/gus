@@ -96,6 +96,10 @@ pub fn create_model(args: index::CreateModel) {
             primary_key_opts.push(attr_name.clone());
         }
 
+        /*
+            define constraints here
+        */
+
         required_opts.push(attr_name.clone());
 
         if primary_key_opts.len() > 0 {
@@ -143,7 +147,8 @@ pub fn create_model(args: index::CreateModel) {
         model_name: server::model::types::AttrName(model_name.clone()),
         attributes: attributes.clone(),
         primary_key: server::model::types::AttrName(primary_key),
-        required: required
+        required: required,
+        constraints: None
     };
 
     #[cfg(debug_assertions)]

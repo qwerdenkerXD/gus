@@ -4,6 +4,7 @@ use std::fmt;
 // used traits
 use std::cmp::PartialEq;
 use serde::Deserializer;
+use serde_json::Value;
 use serde_derive::{
     Deserialize,
     Serialize
@@ -52,7 +53,7 @@ pub enum TrueType {
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 #[serde(untagged)]
 pub enum TruePrimitiveType {
-    Integer(i32),
+    Integer(i64),
     String(String),
     Boolean(bool)
 }
@@ -108,4 +109,27 @@ pub fn validate_attr_name(name: &String) -> std::io::Result<()> {
         return Ok(());
     }
     Err(Error::new(ErrorKind::InvalidInput, "Attribute name is not alphabetic in camelCase, snake_case or spinal-case"))
+}
+
+pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType) -> Result<TruePrimitiveType> {
+    match model_type {
+        PrimitiveType::Integer => {
+            match value.as_i64() {
+                Some(val) => Ok(TruePrimitiveType::Integer(val)),
+                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Integer\""))
+            }
+        },
+        PrimitiveType::String => {
+            match value.as_str() {
+                Some(val) => Ok(TruePrimitiveType::String(val.to_string())),
+                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"String\""))
+            }
+        },
+        PrimitiveType::Boolean => {
+            match value.as_bool() {
+                Some(val) => Ok(TruePrimitiveType::Boolean(val)),
+                None => Err(Error::new(ErrorKind::InvalidInput, "expected: \"Boolean\""))
+            }
+        },
+    }
 }

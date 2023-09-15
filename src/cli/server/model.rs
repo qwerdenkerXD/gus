@@ -71,18 +71,42 @@ pub fn validate_model_definition(definition: &types::ModelDefinition) -> Result<
 }
 
 pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
-    let parsed_json = parse::<HashMap<String, Value>>(json);
+    let parsed_json = parse::<HashMap<types::AttrName, Value>>(json);
     if let Err(_) = parsed_json {
         return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String is not valid JSON"));
     }
+    let mut record: types::Record = HashMap::new();
     for (key, value) in parsed_json.unwrap() {
-        if !model.attributes.get(&types::AttrName(key)).is_some() {
+        if let Some(ty) = model.attributes.get(&key) {
+            match ty {
+                types::AttrType::Primitive(prim_type) => {
+                    match types::to_true_prim_type(&value, &prim_type) {
+                        Ok(true_prim_value) => record.insert(key, types::TrueType::Primitive(true_prim_value)),
+                        Err(err) => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of attribute {:?}, {}", key, err)))
+                    };
+                },
+                types::AttrType::Array(arr_type) => {
+                    match value.as_array() {
+                        Some(arr) => {
+                            let mut true_arr: Vec<types::TruePrimitiveType> = vec!();
+                            for val in arr {
+                                match types::to_true_prim_type(val, &arr_type[0]) {
+                                    Ok(true_prim_value) => true_arr.push(true_prim_value),
+                                    Err(err) => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of array attribute {:?}, {}", key, err)))
+                                };
+                            }
+                            record.insert(key, types::TrueType::Array(true_arr));
+                        },
+                        None => return Err(Error::new(ErrorKind::InvalidInput, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
+                    };
+                },
+            }
+        } else {
             return Err(Error::new(ErrorKind::InvalidInput, "Given JSON-String doesn't match model definition"));
         }
-        unimplemented!();
     }
 
-    Ok(HashMap::new())
+    Ok(record)
 }
 
 

@@ -26,11 +26,11 @@ use serde_json::from_str as parse;
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
 
-pub trait ModelHandler {
-    fn create_one(record: Record) -> Result<Record>;
-    fn read_one(id: PrimitiveType) -> Result<Record>;
-    fn update_one(id: PrimitiveType, record: Record) -> Result<Record>;
-    fn delete_one(id: PrimitiveType) -> Result<Record>;
+pub trait StorageHandler {
+    fn create_one(&self, record: Record) -> Result<Record>;
+    fn read_one(&self, id: TruePrimitiveType) -> Result<Record>;
+    fn update_one(&self, id: TruePrimitiveType, record: Record) -> Result<Record>;
+    fn delete_one(&self, id: TruePrimitiveType) -> Result<Record>;
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -87,7 +87,7 @@ pub struct FloatConstraint;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ModelDefinition {
-    pub model_name: AttrName,
+    pub model_name: ModelName,
     pub attributes: Attributes,
     pub primary_key: AttrName,
     pub required: Vec<AttrName>,
@@ -132,6 +132,9 @@ pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
 
     Ok(())
 }
+
+#[derive(Deserialize, Serialize, Eq, PartialEq, Clone, Debug)]
+pub struct ModelName(pub AttrName);
 
 // define AttrName with custom Deserializer that validates REST-ful Strings
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
@@ -225,7 +228,7 @@ mod tests {
     fn test_validate_model_definition() {
         // test primary key of type array
         let model = &ModelDefinition {
-            model_name: AttrName("Test".to_string()),
+            model_name: ModelName(AttrName("Test".to_string())),
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Array([PrimitiveType::String]))
@@ -237,7 +240,7 @@ mod tests {
 
         // test not existing primary key attribute
         let model = &ModelDefinition {
-            model_name: AttrName("Test".to_string()),
+            model_name: ModelName(AttrName("Test".to_string())),
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::new(),
             required: vec!(AttrName("id".to_string())),
@@ -247,7 +250,7 @@ mod tests {
 
         // test not required primary key
         let model = &ModelDefinition {
-            model_name: AttrName("Test".to_string()),
+            model_name: ModelName(AttrName("Test".to_string())),
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
@@ -259,7 +262,7 @@ mod tests {
 
         // test not existing required attribute
         let model = &ModelDefinition {
-            model_name: AttrName("Test".to_string()),
+            model_name: ModelName(AttrName("Test".to_string())),
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))

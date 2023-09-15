@@ -2,9 +2,16 @@ pub mod index;
 mod server;
 
 // used types
+use index::Cli;
 use dialoguer::console::Style;
 use std::collections::HashMap;
-use clap::Parser;
+use server::model::types::{
+    ModelDefinition,
+    Attributes,
+    ModelName,
+    AttrType,
+    AttrName
+};
 use dialoguer::{
     theme::ColorfulTheme,
     MultiSelect,
@@ -19,7 +26,7 @@ use std::path::{
 };
 
 // used functions
-use server::model::types;
+use server::model::types::validate_attr_name;
 use std::fs::write;
 use serde_json::{
     from_str,
@@ -27,17 +34,11 @@ use serde_json::{
 };
 
 pub fn run() {
-    let args = index::Cli::parse();
-    match args.command {
-        index::Commands::Start(cmd) => start(cmd),
-        index::Commands::CreateModel(cmd) => create_model(cmd)
+    let cli: Cli = index::get_args();
+    match cli.command {
+        index::Commands::Start(args) => server::start(args.port),
+        index::Commands::CreateModel(args) => create_model(args)
     }
-}
-
-pub fn start(args: index::StartServer) {
-    let modelspath: &Path = Path::new(&args.modelspath);
-    server::start(modelspath);
-    todo!();
 }
 
 pub fn create_model(args: index::CreateModel) {
@@ -48,10 +49,10 @@ pub fn create_model(args: index::CreateModel) {
         }
     }
 
-    let mut attributes: types::Attributes = HashMap::new();
+    let mut attributes: Attributes = HashMap::new();
     let mut primary_key_opts: Vec<String> = vec!();
     let mut required_opts: Vec<String> = vec!();
-    let mut required: Vec<types::AttrName> = vec!();
+    let mut required: Vec<AttrName> = vec!();
 
     let model_name: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("Model Name:")
@@ -88,12 +89,12 @@ pub fn create_model(args: index::CreateModel) {
                 .interact()
                 .unwrap();
             let selected_type = format!("{:?}", primitives[arr_type_selection]);
-            let selected_arr_type: types::AttrType = types::AttrType::Array([from_str(&selected_type).unwrap()]);
-            attributes.insert(types::AttrName(attr_name.clone()), selected_arr_type);
+            let selected_arr_type: AttrType = AttrType::Array([from_str(&selected_type).unwrap()]);
+            attributes.insert(AttrName(attr_name.clone()), selected_arr_type);
         } else {
             let selected_type = format!("{:?}", types[type_selection]);
-            let selected_attr_type: types::AttrType = from_str(&selected_type).unwrap();
-            attributes.insert(types::AttrName(attr_name.clone()), selected_attr_type);
+            let selected_attr_type: AttrType = from_str(&selected_type).unwrap();
+            attributes.insert(AttrName(attr_name.clone()), selected_attr_type);
             primary_key_opts.push(attr_name.clone());
         }
 
@@ -124,7 +125,7 @@ pub fn create_model(args: index::CreateModel) {
         .interact()
         .unwrap();
     let primary_key = primary_key_opts[id_selection].to_string();
-    required.push(types::AttrName(primary_key.clone()));
+    required.push(AttrName(primary_key.clone()));
     required_opts.retain(|s| s != &primary_key);
 
     println!();
@@ -140,21 +141,21 @@ pub fn create_model(args: index::CreateModel) {
             .unwrap();
 
         for attr_index in required_selection {
-            required.push(types::AttrName(required_opts[attr_index].to_string()));
+            required.push(AttrName(required_opts[attr_index].to_string()));
         }
     }
 
-    let created_model = types::ModelDefinition {
-        model_name: types::AttrName(model_name.clone()),
+    let created_model = ModelDefinition {
+        model_name: ModelName(AttrName(model_name.clone())),
         attributes: attributes.clone(),
-        primary_key: types::AttrName(primary_key),
+        primary_key: AttrName(primary_key),
         required: required,
         constraints: None
     };
 
     #[cfg(debug_assertions)]
     {
-        assert!(types::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
+        assert!(server::model::types::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
     }
 
     let mut modelspath: PathBuf = PathBuf::new();
@@ -177,7 +178,7 @@ impl Validator<String> for JsonAttrValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
-        match types::validate_attr_name(input) {
+        match validate_attr_name(input) {
             Ok(_) => Ok(()),
             Err(err) => Err(format!("{}", err))
         }

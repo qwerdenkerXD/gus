@@ -1,10 +1,15 @@
 pub mod types;
+mod handler;
 
 // used types
+pub use handler::StorageTypes;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::fs::ReadDir;
 use std::path::Path;
+use crate::cli::index;
+use handler::*;
+use types::*;
 use std::io::{
     ErrorKind,
     Result,
@@ -22,20 +27,19 @@ use std::fs::{
     read_dir
 };
 
-pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
+pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
-    let mut models: Vec<types::ModelDefinition> = Vec::new();
+    let mut models: Vec<ModelDefinition> = Vec::new();
     for file in model_paths.unwrap() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(path) = file {
             if let Ok(data) = read_to_string(&path.path()) {
-                match types::ModelDefinition::try_from(&data) {
-                    Ok(model) => models.push(model),
-                    Err(err) => println!("Ignored: {:?}, {}", &path.path(), err)
+                if let Ok(model) = ModelDefinition::try_from(&data) {
+                    models.push(model);
                 }
             }
         }
@@ -46,8 +50,8 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<types::ModelDefinition>>{
     Ok(models)
 }
 
-pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<types::Record> {
-    let parsed_json = parse::<HashMap<types::AttrName, Value>>(json);
+fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
+    let parsed_json = parse::<HashMap<AttrName, Value>>(json);
     if let Err(_) = parsed_json {
         return Err(Error::new(InvalidData, "Given JSON-String is not valid JSON"));
     }
@@ -59,30 +63,30 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
         };
     }
 
-    let mut record: types::Record = HashMap::new();
+    let mut record: Record = HashMap::new();
 
     // convert parsed_json to Record
     for (key, value) in parsed_json.unwrap() {
         let is_required: bool = model.required.contains(&key);
         if let Some(ty) = model.attributes.get(&key) {
             match ty {
-                types::AttrType::Primitive(prim_type) => {
-                    match types::to_true_prim_type(&value, &prim_type, &is_required) {
-                        Ok(true_prim_value) => record.insert(key, types::TrueType::Primitive(true_prim_value)),
+                AttrType::Primitive(prim_type) => {
+                    match to_true_prim_type(&value, &prim_type, &is_required) {
+                        Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
                         Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key, err)))
                     };
                 },
-                types::AttrType::Array(arr_type) => {
+                AttrType::Array(arr_type) => {
                     match value.as_array() {
                         Some(arr) => {
-                            let mut true_arr: Vec<types::TruePrimitiveType> = vec!();
+                            let mut true_arr: Vec<TruePrimitiveType> = vec!();
                             for val in arr {
-                                match types::to_true_prim_type(val, &arr_type[0], &is_required) {
+                                match to_true_prim_type(val, &arr_type[0], &is_required) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value),
                                     Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key, err)))
                                 };
                             }
-                            record.insert(key, types::TrueType::Array(true_arr));
+                            record.insert(key, TrueType::Array(true_arr));
                         },
                         None => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
                     };
@@ -99,7 +103,7 @@ pub fn parse_record(json: &String, model: &types::ModelDefinition) -> Result<typ
     Ok(record)
 }
 
-fn check_constraints(record: &types::Record) -> Result<()> {
+fn check_constraints(record: &Record) -> Result<()> {
     Ok(())
 }
 
@@ -122,32 +126,32 @@ mod tests {
                 "recommended": true
             }
         "#;
-        let expected_record: types::Record = HashMap::from([
-            (types::AttrName("id".to_string()),types::TrueType::Primitive(types::TruePrimitiveType::Integer(1))),
-            (types::AttrName("name".to_string()),types::TrueType::Primitive(types::TruePrimitiveType::String("Natural Born Killers".to_string()))),
-            (types::AttrName("year".to_string()),types::TrueType::Primitive(types::TruePrimitiveType::Integer(1994))),
-            (types::AttrName("actors".to_string()),types::TrueType::Array(vec!(types::TruePrimitiveType::String("Woody Harrelson".to_string()), types::TruePrimitiveType::String("Juliette Lewis".to_string())))),
-            (types::AttrName("recommended".to_string()),types::TrueType::Primitive(types::TruePrimitiveType::Boolean(true)))
+        let expected_record: Record = HashMap::from([
+            (AttrName("id".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1))),
+            (AttrName("name".to_string()),TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
+            (AttrName("year".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1994))),
+            (AttrName("actors".to_string()),TrueType::Array(vec!(TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())))),
+            (AttrName("recommended".to_string()),TrueType::Primitive(TruePrimitiveType::Boolean(true)))
         ]);
 
-        let movie_model = types::ModelDefinition {
-            model_name: types::AttrName("movie".to_string()),
+        let movie_model = ModelDefinition {
+            model_name: ModelName(AttrName("movie".to_string())),
             attributes: HashMap::from([
-                (types::AttrName("id".to_string()), types::AttrType::Primitive(types::PrimitiveType::Integer)),
-                (types::AttrName("name".to_string()), types::AttrType::Primitive(types::PrimitiveType::String)),
-                (types::AttrName("year".to_string()), types::AttrType::Primitive(types::PrimitiveType::Integer)),
-                (types::AttrName("actors".to_string()), types::AttrType::Array([types::PrimitiveType::String])),
-                (types::AttrName("recommended".to_string()), types::AttrType::Primitive(types::PrimitiveType::Boolean))
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
+                (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("actors".to_string()), AttrType::Array([PrimitiveType::String])),
+                (AttrName("recommended".to_string()), AttrType::Primitive(PrimitiveType::Boolean))
             ]),
-            primary_key: types::AttrName("id".to_string()),
+            primary_key: AttrName("id".to_string()),
             required: vec!(
-                types::AttrName("id".to_string()),
-                types::AttrName("name".to_string()),
-                types::AttrName("recommended".to_string())
+                AttrName("id".to_string()),
+                AttrName("name".to_string()),
+                AttrName("recommended".to_string())
             ),
             constraints: None
         };
-        let parsed_record: types::Record = parse_record(&valid_input.to_string(), &movie_model).unwrap();
+        let parsed_record: Record = parse_record(&valid_input.to_string(), &movie_model).unwrap();
         
         assert_eq!(&parsed_record, &expected_record);
 
@@ -241,25 +245,25 @@ mod tests {
 
     #[test]
     fn test_parse_models() {
-        let movie_model = types::ModelDefinition {
-            model_name: types::AttrName("movie".to_string()),
+        let movie_model = ModelDefinition {
+            model_name: ModelName(AttrName("movie".to_string())),
             attributes: HashMap::from([
-                (types::AttrName("id".to_string()), types::AttrType::Primitive(types::PrimitiveType::Integer)),
-                (types::AttrName("name".to_string()), types::AttrType::Primitive(types::PrimitiveType::String)),
-                (types::AttrName("year".to_string()), types::AttrType::Primitive(types::PrimitiveType::Integer)),
-                (types::AttrName("actors".to_string()), types::AttrType::Array([types::PrimitiveType::String])),
-                (types::AttrName("recommended".to_string()), types::AttrType::Primitive(types::PrimitiveType::Boolean))
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
+                (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("actors".to_string()), AttrType::Array([PrimitiveType::String])),
+                (AttrName("recommended".to_string()), AttrType::Primitive(PrimitiveType::Boolean))
             ]),
-            primary_key: types::AttrName("id".to_string()),
+            primary_key: AttrName("id".to_string()),
             required: vec!(
-                types::AttrName("id".to_string()),
-                types::AttrName("name".to_string()),
-                types::AttrName("recommended".to_string())
+                AttrName("id".to_string()),
+                AttrName("name".to_string()),
+                AttrName("recommended".to_string())
             ),
             constraints: None
         };
 
-        let expected_result: Vec<types::ModelDefinition> = vec![movie_model];
+        let expected_result: Vec<ModelDefinition> = vec![movie_model];
         assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap(), &expected_result);
 
         // test errors

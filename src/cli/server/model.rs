@@ -1,15 +1,15 @@
-pub mod types;
+mod types;
 mod handler;
 
 // used types
 pub use handler::StorageTypes;
+pub use types::*;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::fs::ReadDir;
 use std::path::Path;
 use crate::cli::index;
 use handler::*;
-use types::*;
 use std::io::{
     ErrorKind,
     Result,
@@ -21,15 +21,14 @@ use ErrorKind::{
 };
 
 // used functions
-use serde_json::from_str as parse;
 use std::fs::{
     read_to_string,
     read_dir
 };
 
 pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
-    if let Some(args) = index::get_start_args() {
-        let storage_handler = get_handler(&args.storage_type, model_name, &args.modelspath);
+    if let Some(args) = index::get_valid_start_args() {
+        let storage_handler = get_handler(&args.storage_type, model_name, &args.data);
         let model = parse_model(args.modelspath.as_path(), model_name);
         if let Err(err) = model {
             return Err(err);
@@ -148,9 +147,6 @@ fn check_constraints(record: &Record) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_args_for_model(cli: index::Cli) -> Result<index::Cli> {
-    todo!("need to check for duplicates")
-}
 
 
 

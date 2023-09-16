@@ -1,7 +1,4 @@
-use crate::cli::server::model::{
-    StorageTypes,
-    validate_args_for_model
-};
+use crate::cli::server::model::StorageTypes;
 use std::path::PathBuf;
 use std::io::{
     ErrorKind,
@@ -51,15 +48,6 @@ pub struct CreateModel {
     pub modelspath: PathBuf
 }
 
-pub fn get_args() -> Cli {
-    let cli = Cli::parse();
-    #[cfg(test)]
-    {
-        let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
-    }
-    cli
-}
-
 pub fn get_validated_args() -> Result<Cli> {
     let cli = Cli::parse();
     #[cfg(test)]
@@ -69,16 +57,20 @@ pub fn get_validated_args() -> Result<Cli> {
     validate_args(cli)
 }
 
-pub fn get_start_args() -> Option<StartServer> {
-    if let Commands::Start(args) = get_args().command {
-        return Some(args);
+pub fn get_valid_start_args() -> Option<StartServer> {
+    if let Ok(args) = get_validated_args() {
+        if let Commands::Start(args) = args.command {
+            return Some(args);
+        }
     }
     None
 }
 
-pub fn get_create_model_args() -> Option<CreateModel> {
-    if let Commands::CreateModel(args) = get_args().command {
-        return Some(args);
+pub fn get_valid_create_model_args() -> Option<CreateModel> {
+    if let Ok(args) = get_validated_args() {
+        if let Commands::CreateModel(args) = args.command {
+            return Some(args);
+        }
     }
     None
 }
@@ -99,5 +91,5 @@ fn validate_args(cli: Cli) -> Result<Cli> {
             }
         }
     }
-    validate_args_for_model(cli)
+    Ok(cli)
 }

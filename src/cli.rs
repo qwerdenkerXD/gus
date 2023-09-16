@@ -5,7 +5,7 @@ mod server;
 use index::Cli;
 use dialoguer::console::Style;
 use std::collections::HashMap;
-use server::model::types::{
+use server::model::{
     ModelDefinition,
     Attributes,
     ModelName,
@@ -26,7 +26,6 @@ use std::path::{
 };
 
 // used functions
-use server::model::types::validate_attr_name;
 use std::fs::write;
 use serde_json::{
     from_str,
@@ -94,11 +93,11 @@ pub fn create_model(args: index::CreateModel) {
                 .unwrap();
             let selected_type = format!("{:?}", primitives[arr_type_selection]);
             let selected_arr_type: AttrType = AttrType::Array([from_str(&selected_type).unwrap()]);
-            attributes.insert(AttrName(attr_name.clone()), selected_arr_type);
+            attributes.insert(AttrName::try_from(&attr_name).unwrap(), selected_arr_type);
         } else {
             let selected_type = format!("{:?}", types[type_selection]);
             let selected_attr_type: AttrType = from_str(&selected_type).unwrap();
-            attributes.insert(AttrName(attr_name.clone()), selected_attr_type);
+            attributes.insert(AttrName::try_from(&attr_name).unwrap(), selected_attr_type);
             primary_key_opts.push(attr_name.clone());
         }
 
@@ -129,7 +128,7 @@ pub fn create_model(args: index::CreateModel) {
         .interact()
         .unwrap();
     let primary_key = primary_key_opts[id_selection].to_string();
-    required.push(AttrName(primary_key.clone()));
+    required.push(AttrName::try_from(&primary_key).unwrap());
     required_opts.retain(|s| s != &primary_key);
 
     println!();
@@ -145,21 +144,21 @@ pub fn create_model(args: index::CreateModel) {
             .unwrap();
 
         for attr_index in required_selection {
-            required.push(AttrName(required_opts[attr_index].to_string()));
+            required.push(AttrName::try_from(&required_opts[attr_index].to_string()).unwrap());
         }
     }
 
     let created_model = ModelDefinition {
-        model_name: ModelName(AttrName(model_name.clone())),
+        model_name: ModelName(AttrName::try_from(&model_name).unwrap()),
         attributes: attributes.clone(),
-        primary_key: AttrName(primary_key),
+        primary_key: AttrName::try_from(&primary_key).unwrap(),
         required: required,
         constraints: None
     };
 
     #[cfg(debug_assertions)]
     {
-        assert!(server::model::types::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
+        assert!(server::model::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
     }
 
     let mut modelspath: PathBuf = PathBuf::new();
@@ -182,7 +181,7 @@ impl Validator<String> for JsonAttrValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
-        match validate_attr_name(input) {
+        match AttrName::try_from(input) {
             Ok(_) => Ok(()),
             Err(err) => Err(format!("{}", err))
         }

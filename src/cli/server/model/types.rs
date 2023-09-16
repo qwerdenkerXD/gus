@@ -21,7 +21,7 @@ use std::io::{
 };
 
 // used functions
-use serde_json::from_str as parse;
+pub use serde_json::from_str as parse;
 
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
@@ -140,6 +140,17 @@ pub struct ModelName(pub AttrName);
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct AttrName(pub String);
 
+impl TryFrom<&String> for AttrName {
+    type Error = Error;
+
+    fn try_from(s: &String) -> core::result::Result<Self, Self::Error> {
+        match validate_attr_name(s) {
+            Ok(_) => Ok(AttrName(s.clone())),
+            Err(err) => Err(err),
+        }
+    }
+}
+
 struct AttrNameVisitor;
 
 impl<'de> de::Visitor<'de> for AttrNameVisitor {
@@ -153,10 +164,9 @@ impl<'de> de::Visitor<'de> for AttrNameVisitor {
     where
         E: de::Error,
     {
-        if validate_attr_name(&value.to_string()).is_ok() {
-            Ok(AttrName(value.to_string()))
-        } else {
-            Err(de::Error::custom("String is not alphabetic in camelCase, snake_case or spinal-case"))
+        match AttrName::try_from(&value.to_string()) {
+            Ok(name) => Ok(name),
+            Err(err) => Err(de::Error::custom(format!("{}", err))),
         }
     }
 }
@@ -170,15 +180,19 @@ impl<'de> de::Deserialize<'de> for AttrName {
     }
 }
 
-pub fn validate_attr_name(name: &String) -> std::io::Result<()> {
-    let camel_case: Regex = Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap();
-    let snake_case: Regex = Regex::new(r#"^[a-z][_a-z]*[a-z]$"#).unwrap();
-    let spinal_case: Regex = Regex::new(r#"^[a-z][-a-z]*[a-z]$"#).unwrap();
+fn validate_attr_name(name: &String) -> std::io::Result<()> {
+    let mut regex: Vec<Regex> = vec!();
+    regex.push(Regex::new(r#"^[A-Z][a-zA-Z]*$"#).unwrap());  // PascalCase
+    regex.push(Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap());  // camelCase
+    regex.push(Regex::new(r#"^[a-z]+(_[a-z]+)*$"#).unwrap());  // snake_case
+    regex.push(Regex::new(r#"^[a-z]+(-[a-z]+)*$"#).unwrap());  // spinal-case
 
-    if camel_case.is_match(name) || snake_case.is_match(name) || spinal_case.is_match(name) {
-        return Ok(());
+    for r in regex {
+        if r.is_match(name) {
+            return Ok(());
+        }
     }
-    Err(Error::new(ErrorKind::InvalidData, "Attribute name is not alphabetic in camelCase, snake_case or spinal-case"))
+    Err(Error::new(ErrorKind::InvalidData, "Attribute name is not alphabetic in camelCase, PascalCase, snake_case or spinal-case"))
 }
 
 pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {

@@ -1,13 +1,14 @@
+// used modules
 use std::env;
-use std::collections::HashMap;
-use std::fs::{
-    ReadDir,
-    DirEntry
-};
+
+// used types
+use std::fs::DirEntry;
 use std::path::{
     PathBuf,
     Path
 };
+
+// used functions
 use std::fs::{
     read_dir,
     write
@@ -19,24 +20,29 @@ fn main() {
     in_dir.push("src/cli/server/view");
     
     let mut view_rs: String = String::from("
-        use std::collections::HashMap;
+use std::collections::HashMap;
 
-        type ContentHeader = String;
-        type ViewFile = &'static [u8];
-        type URN = String;
-        type ViewFiles = HashMap<URN, Hierarchy>;
-        
-        #[derive(Clone)]
-        enum Hierarchy {
-            File((ViewFile, ContentHeader)),
-            Dir(ViewFiles)
-        }
+type ContentHeader = String;
+type ViewFile = &'static [u8];
+type ViewFiles = HashMap<URN, Hierarchy>;
 
-        fn get_view_files() -> ViewFiles {
-            HashMap::from([
+#[derive(Clone, Hash, Eq, PartialEq)]
+enum URN {
+    FileName(String),
+    DirName(String)
+}
+
+#[derive(Clone)]
+enum Hierarchy {
+    File((ViewFile, ContentHeader)),
+    Dir(ViewFiles)
+}
+
+fn get_view_files() -> ViewFiles {
+    HashMap::from([
 ");
     view_rs.push_str(visit_dirs(&in_dir).as_str());
-    view_rs.push_str("])}");
+    view_rs.push_str("    ])\n}");
 
     let out_dir: String = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("view.rs");
@@ -46,10 +52,10 @@ fn main() {
 fn visit_dirs(dir: &PathBuf) -> String {
     let mut view_rs: String = String::new();
     for entry in read_dir(dir.as_path()).unwrap() {
-        let entry = entry.unwrap();
-        let path = entry.path();
+        let entry: DirEntry = entry.unwrap();
+        let path: PathBuf = entry.path();
         if path.is_file() {
-            let push_string = |content_type: &str| -> String { format!("({:?}.to_string(), Hierarchy::File((include_bytes!({:?}), \"{content_type}\".to_string()))),", path.file_name().unwrap(), path.to_str().unwrap()) };
+            let push_string = |content_type: &str| -> String { format!("        (URN::FileName({:?}.to_string()), Hierarchy::File((include_bytes!({:?}), \"{content_type}\".to_string()))),\n", path.file_name().unwrap(), path.to_str().unwrap()) };
             match path.extension() {
                 Some(ext) => {
                     match ext.to_str().unwrap() {
@@ -70,11 +76,10 @@ fn visit_dirs(dir: &PathBuf) -> String {
                 None => view_rs.push_str(push_string("text/plain").as_str()),
             }
         } else {
-            view_rs.push_str(format!("({:?}.to_string(), Hierarchy::Dir(HashMap::from([", path.file_name().unwrap()).as_str());
+            view_rs.push_str(format!("        (URN::DirName({:?}.to_string()), Hierarchy::Dir(HashMap::from([\n", path.file_name().unwrap()).as_str());
             view_rs.push_str(visit_dirs(&path).as_str());
-            view_rs.push_str("]))),");
+            view_rs.push_str("        ]))),\n");
         }
     }
-    view_rs.pop();  // pop the comma from the end
     view_rs
 }

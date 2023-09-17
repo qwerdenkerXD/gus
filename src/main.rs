@@ -4,7 +4,8 @@ mod cli;
 async fn main() {
     match cli::run() {
         Some(server) => {
-            if let Err(_) = server.await {
+            if let Err(err) = server.await {
+                eprintln!("{}", err);
                 return;
             }
         },

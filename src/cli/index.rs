@@ -1,18 +1,23 @@
-use crate::cli::server::model::StorageTypes;
-use std::path::PathBuf;
+// used types
+use super::server::model::StorageTypes;
+use std::path::{
+    PathBuf,
+    Path
+};
 use std::io::{
     ErrorKind,
     Result,
     Error
 };
+use clap::ValueHint::{
+    FilePath,
+    DirPath
+};
+
+// used traits
 use clap::{
     Parser,
-    Subcommand,
-    ValueHint
-};
-use ValueHint::{
-    DirPath,
-    FilePath
+    Subcommand
 };
 
 #[derive(Parser, Debug)]
@@ -75,16 +80,23 @@ pub fn get_valid_create_model_args() -> Option<CreateModel> {
     None
 }
 
-fn validate_args(cli: Cli) -> Result<Cli> {
-    match &cli.command {
-        Commands::Start(start) => {
+fn validate_args(mut cli: Cli) -> Result<Cli> {
+    match cli.command {
+        Commands::Start(ref mut start) => {
             if !start.modelspath.as_path().is_dir() {
                 return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
             }
-            if !start.data.as_path().is_file() {
-                match start.data.as_path().parent() {
+            if let Some(path) = start.data.to_str() {
+                if &path == &"./data.<STORAGE_TYPE>.gus" {
+                    start.data.clear();
+                    start.data.push(&format!("./data.{:?}.gus", &start.storage_type));
+                }
+            }
+            let file_path: &Path = start.data.as_path();
+            if !file_path.is_file() {
+                match file_path.parent() {
                     Some(parent) => {
-                        if std::fs::write(parent.join(format!("data.{}.gus", serde_json::to_string(&start.storage_type).unwrap().as_str())), "").is_err() {
+                        if std::fs::write(&file_path, "").is_err() {
                             return Err(Error::new(ErrorKind::PermissionDenied, "not able to create storage file"));
                         }
                     },
@@ -92,7 +104,7 @@ fn validate_args(cli: Cli) -> Result<Cli> {
                 }
             }
         },
-        Commands::CreateModel(create) => {
+        Commands::CreateModel(ref create) => {
             if !create.modelspath.as_path().exists() {
                 return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
             }

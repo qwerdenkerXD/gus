@@ -1,3 +1,4 @@
+// used modules
 use serde::de;
 use std::fmt;
 
@@ -99,10 +100,8 @@ impl TryFrom<&String> for ModelDefinition {
 
     fn try_from(json: &String) -> core::result::Result<Self, Self::Error> {
         if let Ok(model) = parse::<ModelDefinition>(&json) {
-            match validate_model_definition(&model) {
-                Ok(_) => Ok(model),
-                Err(err) => Err(err)
-            }
+            validate_model_definition(&model)?;
+            Ok(model)
         } else {
             Err(Error::new(ErrorKind::InvalidData, "no valid JSON"))
         }
@@ -144,10 +143,8 @@ impl TryFrom<&String> for AttrName {
     type Error = Error;
 
     fn try_from(s: &String) -> core::result::Result<Self, Self::Error> {
-        match validate_attr_name(s) {
-            Ok(_) => Ok(AttrName(s.clone())),
-            Err(err) => Err(err),
-        }
+        validate_attr_name(s)?;
+        Ok(AttrName(s.clone()))
     }
 }
 

@@ -1,20 +1,21 @@
-use crate::cli::server::model::types::{
+use std::path::PathBuf;
+use std::io::Result;
+use super::{
     TruePrimitiveType,
     StorageHandler,
     ModelName,
     Record
 };
-use std::path::PathBuf;
-use std::io::Result;
 
+#[allow(non_camel_case_types)]
 #[derive(serde_derive::Serialize, Debug, clap::ValueEnum, Clone)]
 pub enum StorageTypes {
-    Json
+    json
 }
 
 pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName, storage_file: &PathBuf) -> impl StorageHandler {
     match storage_type {
-        StorageTypes::Json => JsonStorageHandler {
+        StorageTypes::json => JsonStorageHandler {
             model_name: model_name.clone(),
             storage_file: storage_file.clone()
         },

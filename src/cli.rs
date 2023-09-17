@@ -1,8 +1,9 @@
-pub mod index;
+mod index;
 mod server;
 
+pub use index::*;
+
 // used types
-use index::Cli;
 use dialoguer::console::Style;
 use std::collections::HashMap;
 use server::model::{
@@ -28,25 +29,24 @@ use std::path::{
 // used functions
 use std::fs::write;
 use serde_json::{
-    from_str,
-    to_string_pretty
+    to_string_pretty,
+    from_str
 };
 
 pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>> {
-    let cli: std::io::Result<Cli> = index::get_validated_args();
+    let cli: std::io::Result<Cli> = get_validated_args();
     if let Err(err) = cli {
         println!("{}", err);
         return None;
     }
     match cli.unwrap().command {
-        index::Commands::Start(args) => return Some(server::start(args.port)),
-        // index::Commands::CreateModel(args) => None
-        index::Commands::CreateModel(args) => create_model(args)
+        Commands::Start(args) => return Some(server::start(args.port)),
+        Commands::CreateModel(args) => create_model(args)
     }
     None
 }
 
-pub fn create_model(args: index::CreateModel) {
+pub fn create_model(args: CreateModel) {
     if let Ok(exists) = Path::new(&args.modelspath.clone()).try_exists() {
         if !exists {
             eprintln!("The given models' path does not exist");
@@ -163,7 +163,7 @@ pub fn create_model(args: index::CreateModel) {
         assert!(server::model::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
     }
 
-    let mut modelspath: PathBuf = PathBuf::new();
+    let mut modelspath = PathBuf::new();
     modelspath.push(args.modelspath);
     modelspath.push(model_name);
     modelspath.set_extension("json");

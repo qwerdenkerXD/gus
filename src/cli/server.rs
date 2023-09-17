@@ -2,28 +2,29 @@ include!(concat!(env!("OUT_DIR"), "/view.rs"));
 
 pub mod model;
 
+// used types
+use model::Record;
+use std::io::Error;
+use actix_web::{
+    HttpResponse,
+    HttpServer,
+    App
+};
+use actix_web::web::{
+    Path as UriParam
+};
+
+// used derive macros
+use serde_derive::{
+    Deserialize,
+    Serialize
+};
 use actix_web::{
     post,
     get,
     put,
     delete
 };
-use actix_web::{
-    App,
-    HttpResponse,
-    HttpServer
-};
-use actix_web::web::{
-    Json,
-    Path as UriParam
-};
-use serde_derive::{
-    Deserialize,
-    Serialize
-};
-use model::Record;
-use std::io::Error;
-use std::str::Split;
 
 pub async fn start(port: u16) -> Result<(), Error> {
     let server = HttpServer::new(|| 
@@ -52,29 +53,32 @@ struct JsonData {
 #[get("/{uri:.*}")]
 async fn get_uri_handler(uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
+    if subroutes.ends_with("/") {
+        return not_found();
+    }
     let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
     let mut view_files: ViewFiles = get_view_files();
 
     match segments.remove(0) {
-        "" => send_view_file(&view_files, &"index.html".to_string()),
+        "" => send_view_file(&view_files, &URN::FileName("index.html".to_string())),
         "static" => {
-            if let Hierarchy::Dir(dir) = view_files.get("static").unwrap().clone() {
+            if let Hierarchy::Dir(dir) = view_files.get(&URN::DirName("static".to_string())).unwrap().clone() {
                 view_files = dir.clone();
                 while segments.len() > 0 {
                     if segments.len() > 1 {
-                        if let Some(dir) = into_next_dir(&view_files, &segments.remove(0).to_string()) {
+                        if let Some(dir) = into_next_dir(&view_files, &URN::DirName(segments.remove(0).to_string())) {
                             view_files = dir;
                         } else {
                             return not_found();
                         }
                     } else {
-                        return send_view_file(&view_files, &segments.remove(0).to_string());
+                        return send_view_file(&view_files, &URN::FileName(segments.remove(0).to_string()));
                     }
                 }
             }
             not_found()
         }
-        other => send_view_file(&view_files, &other.to_string())
+        other => send_view_file(&view_files, &URN::FileName(other.to_string()))
     }
 }
 

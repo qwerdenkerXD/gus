@@ -1,15 +1,18 @@
 mod types;
 mod handler;
 
+//used modules
+use crate::cli;
+
+pub use types::*;
+use handler::*;
+
 // used types
 pub use handler::StorageTypes;
-pub use types::*;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::fs::ReadDir;
 use std::path::Path;
-use crate::cli::index;
-use handler::*;
 use std::io::{
     ErrorKind,
     Result,
@@ -27,42 +30,32 @@ use std::fs::{
 };
 
 pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
-    if let Some(args) = index::get_valid_start_args() {
+    if let Some(args) = cli::get_valid_start_args() {
         let storage_handler = get_handler(&args.storage_type, model_name, &args.data);
-        let model = parse_model(args.modelspath.as_path(), model_name);
-        if let Err(err) = model {
-            return Err(err);
-        }
-        let record = parse_record(json, &model.unwrap());
-        return match record {
-            Ok(rec) => Ok(rec),
-            Err(err) => Err(err)
-        };
+        let model: ModelDefinition = parse_model(args.modelspath.as_path(), model_name)?;
+        let record: Record = parse_record(json, &model)?;
+        return Ok(record);
     };
     todo!("creating records is currently only possible when the server is running")
 }
 
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
-    match parse_models(model_path) {
-        Ok((mut models, duplicates)) => {
-            models.retain(|m| &m.model_name == model_name);
-            if models.len() == 0 {
-                return Err(Error::new(NotFound, format!("model {:?} not found", model_name)));
-            }
-            Ok(models.remove(0))
-        },
-        Err(err) => Err(err),
+    let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
+    models.retain(|m| &m.model_name == model_name);
+    if models.len() == 0 {
+        return Err(Error::new(NotFound, format!("model {:?} not found", model_name)));
     }
+    Ok(models.remove(0))
 }
 
-pub fn parse_models(model_path: &Path) -> Result<(Vec<ModelDefinition>, bool)>{
+pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
-    let mut models: Vec<ModelDefinition> = Vec::new();
-    let mut model_names: Vec<ModelName> = Vec::new();
-    let mut duplicates: Vec<ModelName> = Vec::new();
+    let mut models: Vec<ModelDefinition> = vec!();
+    let mut model_names: Vec<ModelName> = vec!();
+    let mut duplicates: Vec<ModelName> = vec!();
     for file in model_paths.unwrap() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
@@ -87,19 +80,19 @@ pub fn parse_models(model_path: &Path) -> Result<(Vec<ModelDefinition>, bool)>{
     if models.len() == 0 {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
-    Ok((models, duplicates.len() > 0))
+    Ok(models)
 }
 
 fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
     let parsed_json = parse::<HashMap<AttrName, Value>>(json);
-    if let Err(_) = parsed_json {
+    if parsed_json.is_err() {
         return Err(Error::new(InvalidData, "Given JSON-String is not valid JSON"));
     }
 
     // check for missing required attributes
     for key in &model.required {
         if !parsed_json.as_ref().unwrap().contains_key(key) {
-            return Err(Error::new(InvalidData, ""));
+            return Err(Error::new(InvalidData, format!("Missing attribute: {:?}", &serde_json::to_string(key))));
         };
     }
 
@@ -137,9 +130,8 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
         }
     }
 
-    if let Err(err) = check_constraints(&record) {
-        return Err(err);
-    }
+    check_constraints(&record)?;
+
     Ok(record)
 }
 
@@ -343,9 +335,7 @@ mod tests {
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap().0, &expected_result);
-        assert!(parse_models(Path::new("./src/cli/server/test_models")).unwrap().1,
-                "Expected Error when parsing valid models with duplicate name"); 
+        assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap(), &expected_result);
 
         // test errors
         if let Ok(_) = parse_models(Path::new("./src/cli/server/not_existing_dir")) {

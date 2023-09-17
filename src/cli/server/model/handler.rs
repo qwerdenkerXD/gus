@@ -7,7 +7,7 @@ use crate::cli::server::model::types::{
 use std::path::PathBuf;
 use std::io::Result;
 
-#[derive(Debug, clap::ValueEnum, Clone)]
+#[derive(serde_derive::Serialize, Debug, clap::ValueEnum, Clone)]
 pub enum StorageTypes {
     Json
 }

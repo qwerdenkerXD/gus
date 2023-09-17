@@ -37,7 +37,7 @@ pub struct StartServer {
     pub modelspath: PathBuf,
     #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
     pub storage_type: StorageTypes,
-    #[clap(short, long, default_value = "./data.<STORAGE_TYPE>.gus", value_name = "FILE", value_hint = FilePath, help = "The path to the storage file")]
+    #[clap(short, long, default_value = "./data.<STORAGE_TYPE>.gus" /* no good idea as default value */, value_name = "FILE", value_hint = FilePath, help = "The path to the storage file")]
     pub data: PathBuf
 }
 
@@ -49,10 +49,10 @@ pub struct CreateModel {
 }
 
 pub fn get_validated_args() -> Result<Cli> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
     #[cfg(test)]
     {
-        let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
+        cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
     }
     validate_args(cli)
 }
@@ -78,16 +78,23 @@ pub fn get_valid_create_model_args() -> Option<CreateModel> {
 fn validate_args(cli: Cli) -> Result<Cli> {
     match &cli.command {
         Commands::Start(start) => {
-            if !start.modelspath.as_path().exists() {
-                return Err(Error::new(ErrorKind::InvalidInput, "models' path doesn't exist"));
+            if !start.modelspath.as_path().is_dir() {
+                return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
             }
-            if !start.data.as_path().exists() {
-                return Err(Error::new(ErrorKind::InvalidInput, "storage file's path doesn't exist"));
+            if !start.data.as_path().is_file() {
+                match start.data.as_path().parent() {
+                    Some(parent) => {
+                        if std::fs::write(parent.join(format!("data.{}.gus", serde_json::to_string(&start.storage_type).unwrap().as_str())), "").is_err() {
+                            return Err(Error::new(ErrorKind::PermissionDenied, "not able to create storage file"));
+                        }
+                    },
+                    None => return Err(Error::new(ErrorKind::NotFound, "storage file's path doesn't exist"))
+                }
             }
         },
         Commands::CreateModel(create) => {
             if !create.modelspath.as_path().exists() {
-                return Err(Error::new(ErrorKind::InvalidInput, "models' path doesn't exist"));
+                return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
             }
         }
     }

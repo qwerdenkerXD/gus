@@ -32,16 +32,18 @@ use serde_json::{
     to_string_pretty
 };
 
-pub fn run() {
+pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>> {
     let cli: std::io::Result<Cli> = index::get_validated_args();
     if let Err(err) = cli {
         println!("{}", err);
-        return;
+        return None;
     }
     match cli.unwrap().command {
-        index::Commands::Start(args) => server::start(args.port),
+        index::Commands::Start(args) => return Some(server::start(args.port)),
+        // index::Commands::CreateModel(args) => None
         index::Commands::CreateModel(args) => create_model(args)
     }
+    None
 }
 
 pub fn create_model(args: index::CreateModel) {

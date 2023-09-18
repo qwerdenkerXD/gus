@@ -44,10 +44,10 @@ jobs:
         command: build
         args: --release
 
-   - name: Save Binary for Checkout
-     shell: bash
-     run: |
-       mv target/release/${{ matrix.build }} ../${{ matrix.release }}
+    - name: Save Binary for Checkout
+      shell: bash
+      run: |
+        mv target/release/${{ matrix.build }} ../${{ matrix.release }}
 
     - name: Checkout Debug-Binaries
       uses: actions/checkout@v3

@@ -58,6 +58,8 @@ jobs:
       run: |
         cp ../${{ matrix.release }} .
         chmod a+x ${{ matrix.release }}
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
         git add ${{ matrix.release }}
         git commit --amend -m "Debug Binaries for {{ github.sha }}"
         git push -f

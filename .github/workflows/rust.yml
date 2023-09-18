@@ -47,7 +47,7 @@ jobs:
     - name: Copy Binary to ..
       shell: bash
       run: |
-        cp target/debug/${{ matrix.build }} ../${{ matrix.release }}
+        cp target/release/${{ matrix.build }} ../${{ matrix.release }}
 
     - name: Checkout debug-binaries branch
       uses: actions/checkout@v3

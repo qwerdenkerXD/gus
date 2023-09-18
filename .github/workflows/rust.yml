@@ -44,6 +44,11 @@ jobs:
         command: build
         args: --release
 
+   - name: Save Binary for Checkout
+     shell: bash
+     run: |
+       mv target/release/${{ matrix.build }} ../${{ matrix.release }}
+
     - name: Checkout Debug-Binaries
       uses: actions/checkout@v3
       with:
@@ -52,7 +57,7 @@ jobs:
     - name: Push Binary to Debug-Binaries
       shell: bash
       run: |
-        mv target/release/${{ matrix.build }} ./${{ matrix.release }}
+        mv ../${{ matrix.release }} .
         chmod a+x ${{ matrix.release }}
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"

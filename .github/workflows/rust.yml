@@ -1,4 +1,4 @@
-name: Rust Test, Build and Push to debug-binaries
+name: Rust Test, Build and Push to Debug-Dinaries
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
             build: '${{ github.event.repository.name }}.exe'
 
     steps:
-    - name: Checkout Code
+    - name: Checkout Master
       uses: actions/checkout@v3
 
     - name: Install Rust
@@ -38,29 +38,24 @@ jobs:
       with:
         command: test
 
-    - name: Build
+    - name: Build Release
       uses: actions-rs/cargo@v1
       with:
         command: build
         args: --release
 
-    - name: Copy Binary to ..
-      shell: bash
-      run: |
-        cp target/release/${{ matrix.build }} ../${{ matrix.release }}
-
-    - name: Checkout debug-binaries branch
+    - name: Checkout Debug-Binaries
       uses: actions/checkout@v3
       with:
         ref: debug-binaries
 
-    - name: Push binary to debug-binaries branch
+    - name: Push Binary to Debug-Binaries
       shell: bash
       run: |
-        cp ../${{ matrix.release }} .
+        mv target/release/${{ matrix.build }} ./${{ matrix.release }}
         chmod a+x ${{ matrix.release }}
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add ${{ matrix.release }}
-        git commit --amend -m "Debug Binaries for {{ github.sha }}"
+        git commit --amend -m "Debug Binaries for ${{ github.sha }}"
         git push -f

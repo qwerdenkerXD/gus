@@ -2,6 +2,7 @@
 name = "gus"
 version = "0.1.0"
 edition = "2021"
+authors =  ["Franz-Eric Sill"]
 description = "A generic solution for setting up a REST-ful webserver with a database backend"
 build = "./include_view.rs"
 

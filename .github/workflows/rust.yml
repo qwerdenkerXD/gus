@@ -42,6 +42,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
+        args: --release
 
     - name: Copy Binary to ..
       shell: bash

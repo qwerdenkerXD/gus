@@ -6,7 +6,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  PROJECT: ${{ github.event.repository.name }}
 
 jobs:
   build:
@@ -15,14 +14,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            release: '${{ env.PROJECT }}-linux'
-            build: '${{ env.PROJECT }}'
+            release: '${{ github.event.repository.name }}-linux'
+            build: '${{ github.event.repository.name }}'
           - os: macos-latest
-            release: '${{ env.PROJECT }}-mac'
-            build: '${{ env.PROJECT }}'
+            release: '${{ github.event.repository.name }}-mac'
+            build: '${{ github.event.repository.name }}'
           - os: windows-latest
-            release: '${{ env.PROJECT }}-win.exe'
-            build: '${{ env.PROJECT }}.exe'
+            release: '${{ github.event.repository.name }}-win.exe'
+            build: '${{ github.event.repository.name }}.exe'
 
     steps:
     - name: Checkout Code

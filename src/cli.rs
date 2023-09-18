@@ -76,6 +76,7 @@ pub fn create_model(args: CreateModel) {
         let primitives = vec!(
             "String",
             "Integer",
+            "Float",
             "Boolean"
         );
         let mut types: Vec<&str> = primitives.clone();
@@ -107,7 +108,9 @@ pub fn create_model(args: CreateModel) {
             define constraints here
         */
 
-        required_opts.push(attr_name.clone());
+        if !required_opts.contains(&attr_name) {
+            required_opts.push(attr_name.clone());
+        }
 
         if primary_key_opts.len() > 0 {
             println!();

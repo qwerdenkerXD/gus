@@ -17,7 +17,7 @@ use std::fs::{
 fn main() {
     let manifest_dir: String = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut in_dir = PathBuf::from(&manifest_dir);
-    in_dir.push("src/cli/server/view");
+    in_dir.push("src/cli/server/view_files");
     
     let mut view_rs: String = String::from("
 use std::collections::HashMap;

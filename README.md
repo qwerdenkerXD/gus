@@ -6,3 +6,10 @@ The idea is that the defined models (json) will be parsed and used by the model-
 There will be a fully functional view layer as well, but first I need to enhance my frontend skills.
 
 In the end, gus would be a nice and simple binary tool for private or whatever use. Of course I will try to make it as customizable and convenient as possible.
+
+# Testing 
+During development, until gus is ready for release, I serve the current release binaries of the latest commit on the separate branch `debug-binaries` for testing on Linux, Mac and Windows.<br>
+So feel free to try the current state.
+ - [Linux](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-linux)
+ - [MacOS](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-mac)
+ - [Windows](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-win.exe)

@@ -87,6 +87,9 @@ pub struct BoolConstraint;
 pub struct FloatConstraint;
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct ArrayConstraint;
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ModelDefinition {
     pub model_name: ModelName,
     pub attributes: Attributes,
@@ -108,6 +111,22 @@ impl TryFrom<&String> for ModelDefinition {
     }
 }
 
+
+/*
+    validate_model_definition: 
+        Validates a given model definition if it meets all important conditions.
+
+        What happens exactly:
+            1. validate the primary key,
+               therefore check if it is defined in the attributes,
+               also check if its type is not Array, since this is not allowed
+            2. validate the as required defined attributes,
+               therefore check if the primary key is required,
+               also check if all declared required attributes are actually defined in th attributes
+
+    returns:
+        Empty tuple if the model is valid, else Error
+*/
 pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
     // validate primary key
     if let Some(ty) = definition.attributes.get(&definition.primary_key) {
@@ -154,7 +173,7 @@ impl<'de> de::Visitor<'de> for AttrNameVisitor {
     type Value = AttrName;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("alphabetic String, snake_case or camelCase or spinal-case")
+        formatter.write_str("alphabetic String, snake_case or PascalCase or camelCase or spinal-case")
     }
 
     fn visit_str<E>(self, value: &str) -> core::result::Result<AttrName, E>
@@ -177,7 +196,7 @@ impl<'de> de::Deserialize<'de> for AttrName {
     }
 }
 
-fn validate_attr_name(name: &String) -> std::io::Result<()> {
+fn validate_attr_name(name: &String) -> Result<()> {
     let mut regex: Vec<Regex> = vec!();
     regex.push(Regex::new(r#"^[A-Z][a-zA-Z]*$"#).unwrap());  // PascalCase
     regex.push(Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap());  // camelCase

@@ -34,7 +34,7 @@ pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
         let storage_handler = get_handler(&args.storage_type, model_name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), model_name)?;
         let record: Record = parse_record(json, &model)?;
-        return Ok(record);
+        return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
     };
     todo!("creating records is currently only possible when the server is running")
 }

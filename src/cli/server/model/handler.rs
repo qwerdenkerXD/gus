@@ -1,10 +1,12 @@
 // used types
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::io::Result;
 use super::{
     TruePrimitiveType,
     StorageHandler,
     ModelName,
+    TrueType,
     Record
 };
 
@@ -27,22 +29,25 @@ struct JsonStorageHandler {
 }
 
 impl JsonStorageHandler {
+    fn read_db(&self) -> HashMap<TrueType, Record> {
+        unimplemented!()
+    }
     fn save(&self) {
         todo!();
     }
 }
 
 impl StorageHandler for JsonStorageHandler {
-    fn create_one(&self, record: Record) -> Result<Record> {
+    fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record> {
         todo!();
     }
-    fn read_one(&self, id: TruePrimitiveType) -> Result<Record> {
+    fn read_one(&self, id: &TrueType) -> Result<Record> {
         todo!();
     }
-    fn update_one(&self, id: TruePrimitiveType, record: Record) -> Result<Record> {
+    fn update_one(&self, id: &TrueType, record: Record) -> Result<Record> {
         todo!();
     }
-    fn delete_one(&self, id: TruePrimitiveType) -> Result<Record> {
+    fn delete_one(&self, id: &TrueType) -> Result<Record> {
         todo!();
     }
 }

@@ -28,10 +28,10 @@ pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
 
 pub trait StorageHandler {
-    fn create_one(&self, record: Record) -> Result<Record>;
-    fn read_one(&self, id: TruePrimitiveType) -> Result<Record>;
-    fn update_one(&self, id: TruePrimitiveType, record: Record) -> Result<Record>;
-    fn delete_one(&self, id: TruePrimitiveType) -> Result<Record>;
+    fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record>;
+    fn read_one(&self, id: &TrueType) -> Result<Record>;
+    fn update_one(&self, id: &TrueType, record: Record) -> Result<Record>;
+    fn delete_one(&self, id: &TrueType) -> Result<Record>;
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]

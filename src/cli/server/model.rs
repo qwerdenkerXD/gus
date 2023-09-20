@@ -39,6 +39,21 @@ pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
     todo!("creating records is currently only possible when the server is running")
 }
 
+
+/*
+    parse_model: 
+        Parses a valid model in the given path with the given name.
+
+        What happens exactly:
+            1. fetch all model definitions via parse_models(),
+               this is necessary because of the duplicate filtering
+            2. filter the gotten vector of definitions to matches on the given model name (can be only one)
+            3. return the matching model, else Error when there are none
+
+    returns:
+        A valid model definition with the given model name
+        or an Error if there isn't such model defined
+*/
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
     let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
     models.retain(|m| &m.model_name == model_name);
@@ -48,14 +63,35 @@ pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDef
     Ok(models.remove(0))
 }
 
+
+/*
+    parse_models: 
+        Parses all valid models in the given path into a vector.
+
+        What happens exactly:
+            1. read the directory structure
+            2. iterate through the directories entries
+            3. if an entry can be parsed to a valid model definition,
+               push it to the returning vector and memorize the model's name for duplicate checking
+            4. remove all models from the returning vector whose name occurs multiple times
+            5. return the vector of definitions if there are some, else Error
+
+    returns:
+        A vector of valid model definitions, unique by their names
+        or an Error if there aren't some
+*/
 pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
+    // read directory structure
     let model_paths: Result<ReadDir> = read_dir(model_path);
     if let Err(_) = model_paths {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
-    let mut models: Vec<ModelDefinition> = vec!();
-    let mut model_names: Vec<ModelName> = vec!();
-    let mut duplicates: Vec<ModelName> = vec!();
+
+    let mut models: Vec<ModelDefinition> = vec!();  // stores the parsed valid models
+    let mut model_names: Vec<ModelName> = vec!();  // stores the names of the valid models, just for simpler duplicate checking
+    let mut duplicates: Vec<ModelName> = vec!();  // stores all names of duplicate valid models
+
+    // parse the models
     for file in model_paths.unwrap() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
@@ -83,8 +119,29 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     Ok(models)
 }
 
+
+/*
+    parse_record: 
+        Parses a given JSON-String to a Record, appropriate to its given model definition.
+
+        What happens exactly:
+            1. check if JSON-String is valid JSON and parse it
+            2. check if any required attributes are missing,
+               keep in mind that the model definition is valid (impl TryFrom),
+               so the primary key is required as well
+            3. translate the parsed values to their respective type as defined in the model,
+               else return Error
+            4. check if the Record fits the constraints
+            5. return Record
+
+    returns:
+        a valid Record for the definition or an Error
+        if the given String is not a valid JSON representation of such Record
+*/
 fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
     let parsed_json = parse::<HashMap<AttrName, Value>>(json);
+    
+    // check json
     if parsed_json.is_err() {
         return Err(Error::new(InvalidData, "Given JSON-String is not valid JSON"));
     }

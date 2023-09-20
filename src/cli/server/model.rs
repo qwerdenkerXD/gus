@@ -31,7 +31,7 @@ use std::fs::{
 
 pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
-        let storage_handler = get_handler(&args.storage_type, model_name, &args.data);
+        let storage_handler = get_handler(&args.storage_type, model_name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), model_name)?;
         let record: Record = parse_record(json, &model)?;
         return Ok(record);

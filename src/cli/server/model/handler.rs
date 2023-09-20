@@ -14,18 +14,16 @@ pub enum StorageTypes {
     json
 }
 
-pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName, storage_file: &PathBuf) -> impl StorageHandler {
+pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName) -> impl StorageHandler {
     match storage_type {
         StorageTypes::json => JsonStorageHandler {
             model_name: model_name.clone(),
-            storage_file: storage_file.clone()
         },
     }
 }
 
 struct JsonStorageHandler {
-    model_name: ModelName,
-    storage_file: PathBuf
+    model_name: ModelName
 }
 
 impl JsonStorageHandler {

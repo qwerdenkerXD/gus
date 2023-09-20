@@ -41,9 +41,7 @@ pub struct StartServer {
     #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf,
     #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
-    pub storage_type: StorageTypes,
-    #[clap(short, long, default_value = "./data.<STORAGE_TYPE>.gus" /* no good idea as default value */, value_name = "FILE", value_hint = FilePath, help = "The path to the storage file")]
-    pub data: PathBuf
+    pub storage_type: StorageTypes
 }
 
 #[derive(Parser, Debug)]
@@ -85,23 +83,6 @@ fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
         Commands::Start(ref mut start) => {
             if !start.modelspath.as_path().is_dir() {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &start.modelspath.display(), &start.modelspath.display())).format(&mut Cli::command()));
-            }
-            if let Some(path) = start.data.to_str() {
-                if &path == &"./data.<STORAGE_TYPE>.gus" {
-                    start.data.clear();
-                    start.data.push(&format!("./data.{:?}.gus", &start.storage_type));
-                }
-            }
-            let file_path: &Path = start.data.as_path();
-            if !file_path.is_file() {
-                match file_path.parent() {
-                    Some(parent) => {
-                        if std::fs::write(&file_path, "").is_err() {
-                            return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--data <FILE>': '{}' is not a file nor can it be created", &start.data.display(), &start.data.display())).format(&mut Cli::command()));
-                        }
-                    },
-                    None => return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--data <FILE>': '{}' is not a file nor can it be created", &start.data.display(), &start.data.display())).format(&mut Cli::command()))
-                }
             }
         },
         Commands::CreateModel(ref create) => {

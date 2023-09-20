@@ -4,10 +4,9 @@ use std::path::{
     PathBuf,
     Path
 };
-use std::io::{
-    ErrorKind,
-    Result,
-    Error
+pub use clap::{
+    Error as ClapError,
+    error::ErrorKind::ValueValidation,
 };
 use clap::ValueHint::{
     FilePath,
@@ -17,7 +16,8 @@ use clap::ValueHint::{
 // used traits
 use clap::{
     Parser,
-    Subcommand
+    Subcommand,
+    CommandFactory
 };
 
 #[derive(Parser, Debug)]
@@ -38,7 +38,7 @@ pub enum Commands {
 pub struct StartServer {
     #[clap(short, long, default_value = "8080", help = "The port to start the webserver on")]
     pub port: u16,
-    #[clap(short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
+    #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf,
     #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
     pub storage_type: StorageTypes,
@@ -49,11 +49,11 @@ pub struct StartServer {
 #[derive(Parser, Debug)]
 #[clap(name = "create-model", about = "An interactive Dialog to create valid model definitions")]
 pub struct CreateModel {
-    #[clap(short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
+    #[clap(name = "models-path", short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf
 }
 
-pub fn get_validated_args() -> Result<Cli> {
+pub fn get_validated_args() -> Result<Cli, ClapError> {
     let mut cli = Cli::parse();
     #[cfg(test)]
     {
@@ -80,11 +80,11 @@ pub fn get_valid_create_model_args() -> Option<CreateModel> {
     None
 }
 
-fn validate_args(mut cli: Cli) -> Result<Cli> {
+fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
     match cli.command {
         Commands::Start(ref mut start) => {
             if !start.modelspath.as_path().is_dir() {
-                return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &start.modelspath.display(), &start.modelspath.display())).format(&mut Cli::command()));
             }
             if let Some(path) = start.data.to_str() {
                 if &path == &"./data.<STORAGE_TYPE>.gus" {
@@ -97,16 +97,16 @@ fn validate_args(mut cli: Cli) -> Result<Cli> {
                 match file_path.parent() {
                     Some(parent) => {
                         if std::fs::write(&file_path, "").is_err() {
-                            return Err(Error::new(ErrorKind::PermissionDenied, "not able to create storage file"));
+                            return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--data <FILE>': '{}' is not a file nor can it be created", &start.data.display(), &start.data.display())).format(&mut Cli::command()));
                         }
                     },
-                    None => return Err(Error::new(ErrorKind::NotFound, "storage file's path doesn't exist"))
+                    None => return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--data <FILE>': '{}' is not a file nor can it be created", &start.data.display(), &start.data.display())).format(&mut Cli::command()))
                 }
             }
         },
         Commands::CreateModel(ref create) => {
             if !create.modelspath.as_path().exists() {
-                return Err(Error::new(ErrorKind::NotFound, "models' path doesn't exist"));
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &create.modelspath.display(), &create.modelspath.display())).format(&mut Cli::command()));
             }
         }
     }

@@ -34,9 +34,11 @@ use serde_json::{
 };
 
 pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>> {
-    let cli: std::io::Result<Cli> = get_validated_args();
+    let cli: Result<Cli, ClapError> = get_validated_args();
     if let Err(err) = cli {
-        println!("{}", err);
+        if let Err(_) = err.print() {
+            eprintln!("{}", err.render());
+        }
         return None;
     }
     match cli.unwrap().command {

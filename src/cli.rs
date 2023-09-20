@@ -61,20 +61,23 @@ pub fn create_model(args: CreateModel) {
     let mut required_opts: Vec<String> = vec!();
     let mut required: Vec<AttrName> = vec!();
 
+    // get model name
     let model_name: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("Model Name:")
-        .validate_with(JsonAttrValidator)
+        .validate_with(AttrValidator)
         .interact_text()
         .unwrap();
 
     // define attributes
     loop {
+        // get attribute name
         let attr_name: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Attribute Name:")
-            .validate_with(JsonAttrValidator)
+            .validate_with(AttrValidator)
             .interact_text()
             .unwrap();
 
+        // get attribute type
         let primitives = vec!(
             "String",
             "Integer",
@@ -89,6 +92,8 @@ pub fn create_model(args: CreateModel) {
             .items(&types)
             .interact()
             .unwrap();
+
+        // get array type it is such and don't add it to the primary key options, since it is not allowed as key
         if types[type_selection] == "Array" {
             let arr_type_selection: usize = Select::with_theme(&ColorfulTheme::default())
                 .with_prompt("Array Type:")
@@ -103,17 +108,23 @@ pub fn create_model(args: CreateModel) {
             let selected_type = format!("{:?}", types[type_selection]);
             let selected_attr_type: AttrType = from_str(&selected_type).unwrap();
             attributes.insert(AttrName::try_from(&attr_name).unwrap(), selected_attr_type);
-            primary_key_opts.push(attr_name.clone());
+
+            // don't add attribute names multiple times if they are defined multiple times
+            if !primary_key_opts.contains(&attr_name) {
+                primary_key_opts.push(attr_name.clone());
+            }
         }
 
         /*
             define constraints here
         */
 
+        // don't add attribute names multiple times if they are defined multiple times
         if !required_opts.contains(&attr_name) {
             required_opts.push(attr_name.clone());
         }
 
+        // don't break up with defining attributes until there are some that are key candidates (so if not Array)
         if primary_key_opts.len() > 0 {
             println!();
             if !Confirm::with_theme(&ColorfulTheme::default())
@@ -127,7 +138,7 @@ pub fn create_model(args: CreateModel) {
         println!();
     }
 
-    // define primary key
+    // get primary key
     let id_selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("Primary Key:")
         .default(0)
@@ -135,14 +146,22 @@ pub fn create_model(args: CreateModel) {
         .interact()
         .unwrap();
     let primary_key = primary_key_opts[id_selection].to_string();
+    
+    // automatically set primary key as required
     required.push(AttrName::try_from(&primary_key).unwrap());
+
+    // don't allow the user to unselect the key as not required
     required_opts.retain(|s| s != &primary_key);
 
     println!();
+
+    // set up the theme for the multi select because it may happen that the used terminal emulator
+    // doesn't show the icon for selected items with the default setting -> ASCII is safe
     let mut multi_select_theme = ColorfulTheme::default();
     multi_select_theme.checked_item_prefix = Style::new().green().apply_to(" [X]".to_string());
     multi_select_theme.unchecked_item_prefix = Style::new().red().apply_to(" [ ]".to_string());
 
+    // get required attributes
     if required_opts.len() > 0 {
         let required_selection = MultiSelect::with_theme(&multi_select_theme)
             .with_prompt("Set required attributes:")
@@ -155,6 +174,7 @@ pub fn create_model(args: CreateModel) {
         }
     }
 
+    // create model definition
     let created_model = ModelDefinition {
         model_name: ModelName(AttrName::try_from(&model_name).unwrap()),
         attributes: attributes.clone(),
@@ -165,9 +185,12 @@ pub fn create_model(args: CreateModel) {
 
     #[cfg(debug_assertions)]
     {
+        // this should never fail because the user is not allowed to cause an invalid model
+        // so if it really fails, it is a mistake in this dialogue implementation
         assert!(server::model::validate_model_definition(&created_model).is_ok(), "Invalid model definition");
     }
 
+    // build file path
     let mut modelspath = PathBuf::new();
     modelspath.push(args.modelspath);
     modelspath.push(model_name);
@@ -175,6 +198,7 @@ pub fn create_model(args: CreateModel) {
 
     let model_file_path: &Path = modelspath.as_path();
 
+    // try to write the definition to a file, else write it to stdout
     if let Err(_) = write(model_file_path, &to_string_pretty(&created_model).unwrap()) {
         println!("{}", &to_string_pretty(&created_model).unwrap());
         eprintln!("unable to write file");
@@ -182,9 +206,9 @@ pub fn create_model(args: CreateModel) {
     }
 }
 
-struct JsonAttrValidator;
+struct AttrValidator;
 
-impl Validator<String> for JsonAttrValidator {
+impl Validator<String> for AttrValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {

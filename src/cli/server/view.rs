@@ -1,5 +1,13 @@
 include!(concat!(env!("OUT_DIR"), "/view.rs"));
 
+/*
+    get_view_file: 
+        Returns the content of the file declared by the uri/subroutes.
+
+    returns:
+        The content of the declared file
+        or an Error if there isn't such file
+*/
 pub fn get_view_file(subroutes: &String) -> Option<(ViewFile, ContentHeader)> {
     if subroutes.ends_with("/") {
         return None;

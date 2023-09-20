@@ -47,7 +47,7 @@ pub struct StartServer {
 #[derive(Parser, Debug)]
 #[clap(name = "create-model", about = "An interactive Dialog to create valid model definitions")]
 pub struct CreateModel {
-    #[clap(name = "models-path", short, long, default_value = "./models", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
+    #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf
 }
 

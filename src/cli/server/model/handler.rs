@@ -49,7 +49,17 @@ impl JsonStorageHandler {
     fn read_db(&self) -> Result<HashMap<ModelName, HashMap<String, Record>>> {
         let storage_file: &str = "data.json.gus";
         if let Ok(data) = read_to_string(storage_file) {
-            let mut db = from_str::<HashMap<ModelName, HashMap<String, Record>>>(&data)?;
+            let mut db: HashMap<ModelName, HashMap<String, Record>>;
+            match from_str(&data) {
+                Ok(parsed) => db = parsed,
+                Err(err) => {
+                    if err.is_eof() {
+                        db = HashMap::new();
+                    } else {
+                        return Err(err.into());
+                    }
+                }
+            }
             if db.get(&self.model_name).is_none() {
                 db.insert(self.model_name.clone(), HashMap::new());
             }

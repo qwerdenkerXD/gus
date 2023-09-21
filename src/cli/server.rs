@@ -11,6 +11,7 @@ use actix_web::{
     App
 };
 use actix_web::web::{
+    Bytes as BodyBytes,
     Path as UriParam
 };
 
@@ -25,13 +26,18 @@ use actix_web::{
     put,
     delete
 };
+use model::{
+    create_one
+};
 
 // used functions
 use view::get_view_file;
 
 pub async fn start(port: u16) -> Result<(), Error> {
     let server = HttpServer::new(|| 
-        App::new().service(uri_handler_get))
+        App::new().service(uri_handler_get)
+                  .service(uri_handler_post)
+                  )
                   .bind(format!("127.0.0.1:{port}"))?;
     println!("Listening on port {port}");
     server.run().await
@@ -40,6 +46,12 @@ pub async fn start(port: u16) -> Result<(), Error> {
 fn not_found() -> HttpResponse {
     HttpResponse::NotFound().json(JsonError{
         error: "This page does not exist".to_string()
+    })
+}
+
+fn bad_request(message: String) -> HttpResponse {
+    return HttpResponse::BadRequest().json(JsonError {
+        error: message
     })
 }
 
@@ -61,7 +73,7 @@ async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
     match segments.remove(0) {
         "" => send_view_file(&"index.html".to_string()),
         "view" => send_view_file(subroutes),
-        other => not_found()
+        _ => not_found()
     }
 }
 
@@ -70,5 +82,36 @@ fn send_view_file(subroutes: &String) -> HttpResponse {
     match view_file {
         Some((file, content_type)) => HttpResponse::Ok().insert_header(("content-type", content_type.as_str())).body(file),
         None => not_found()
+    }
+}
+
+
+
+#[post("/{uri:.*}")]
+async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpResponse {
+    let subroutes: &String = &uri.into_inner();
+    let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+
+    match segments.remove(0) {
+        "api" => rest_api_post(subroutes, &body),
+        _ => not_found()
+    }
+}
+
+fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
+    let body_str: Result<&str, std::str::Utf8Error> = std::str::from_utf8(body);
+    if body_str.is_err() {
+        return bad_request("Invalid input, accepting utf-8 only".to_string())
+    }
+    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    segments.remove(0);  // api
+    if segments.len() > 1 {
+        return bad_request("This endpoint does not exist".to_string());
+    }
+    match create_one(&segments.remove(0).to_string(), &body_str.unwrap().to_string()) {
+        Ok(record) => HttpResponse::Ok().json(JsonData {
+            data: record
+        }),
+        Err(err) => bad_request(format!("{}", err))
     }
 }

@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_Cli_parse() {
         if let Ok(_) = Cli::try_parse_from(vec!["gus", "start", "-p", "-1"]) {
-            assert!(false, "Expected Error when passing a negatives to -p");
+            assert!(false, "Expected Error when passing negatives to -p");
         }
         if let Ok(_) = Cli::try_parse_from(vec!["gus", "start", "-p", "65536"]) {
             assert!(false, "Expected Error when passing a port greater than maximum of 65535 to -p");
@@ -121,6 +121,7 @@ mod tests {
 
     #[test]
     fn test_validate_args() {
+        // start
         let mut args: Cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./not_existing_dir/"]).unwrap();
         if let Ok(_) = validate_args(args) {
             assert!(false, "Expected Error when passing a not existing directory to 'start -m'");
@@ -129,6 +130,8 @@ mod tests {
         if let Ok(_) = validate_args(args) {
             assert!(false, "Expected Error when passing a file to 'start -m'");
         }
+
+        // create-model
         args = Cli::try_parse_from(vec!["gus", "create-model", "-m", "./not_existing_dir/"]).unwrap();
         if let Ok(_) = validate_args(args) {
             assert!(false, "Expected Error when passing a not existing directory to 'create-model -m'");

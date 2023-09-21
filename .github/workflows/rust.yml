@@ -1,4 +1,4 @@
-name: Rust Test, Build and Push to Debug-Dinaries
+name: Rust Test, Build and Push to Debug-Binaries
 
 on:
   push:

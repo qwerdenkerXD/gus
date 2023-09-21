@@ -29,10 +29,11 @@ use std::fs::{
     read_dir
 };
 
-pub fn create_one(model_name: &ModelName, json: &String) -> Result<Record> {
+pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
-        let storage_handler = get_handler(&args.storage_type, model_name);
-        let model: ModelDefinition = parse_model(args.modelspath.as_path(), model_name)?;
+        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        let storage_handler = get_handler(&args.storage_type, name);
+        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let record: Record = parse_record(json, &model)?;
         return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
     };
@@ -70,7 +71,7 @@ pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDef
 
         What happens exactly:
             1. read the directory structure
-            2. iterate through the directories entries
+            2. iterate through the directory's entries
             3. if an entry can be parsed to a valid model definition,
                push it to the returning vector and memorize the model's name for duplicate checking
             4. remove all models from the returning vector whose name occurs multiple times

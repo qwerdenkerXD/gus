@@ -81,7 +81,7 @@ pub fn create_model(args: CreateModel) {
         let primitives = vec!(
             "String",
             "Integer",
-            "Float",
+            // "Float",
             "Boolean"
         );
         let mut types: Vec<&str> = primitives.clone();

@@ -46,23 +46,23 @@ pub enum PrimitiveType {
     Integer,
     String,
     Boolean,
-    Float
+    // Float
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 #[serde(untagged)]
 pub enum TrueType {
     Primitive(TruePrimitiveType),
     Array(Vec<TruePrimitiveType>)
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 #[serde(untagged)]
 pub enum TruePrimitiveType {
     Integer(i64),
     String(String),
     Boolean(bool),
-    Float(f64),
+    // Float(f64),
     Null(Option<()>)
 }
 
@@ -151,7 +151,7 @@ pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Eq, PartialEq, Clone, Debug)]
+#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct ModelName(pub AttrName);
 
 // define AttrName with custom Deserializer that validates REST-ful Strings
@@ -238,12 +238,12 @@ pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required:
                 None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Boolean\""))
             }
         },
-        PrimitiveType::Float => {
-            match value.as_f64() {
-                Some(val) => Ok(TruePrimitiveType::Float(val)),
-                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Float\""))
-            }
-        },
+        // PrimitiveType::Float => {
+        //     match value.as_f64() {
+        //         Some(val) => Ok(TruePrimitiveType::Float(val)),
+        //         None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Float\""))
+        //     }
+        // },
     }
 }
 

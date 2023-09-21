@@ -1,16 +1,12 @@
 // used types
 use std::collections::HashMap;
-use std::path::{
-    PathBuf,
-    Path
-};
+use std::path::PathBuf;
 use std::io::{
     ErrorKind,
     Result,
     Error
 };
 use super::{
-    TruePrimitiveType,
     StorageHandler,
     ModelName,
     TrueType,

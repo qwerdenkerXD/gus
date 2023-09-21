@@ -1,17 +1,11 @@
 // used types
 use super::server::model::StorageTypes;
-use std::path::{
-    PathBuf,
-    Path
-};
+use std::path::PathBuf;
 pub use clap::{
     Error as ClapError,
     error::ErrorKind::ValueValidation,
 };
-use clap::ValueHint::{
-    FilePath,
-    DirPath
-};
+use clap::ValueHint::DirPath;
 
 // used traits
 use clap::{

@@ -68,10 +68,18 @@ struct JsonData {
 #[get("/{uri:.*}")]
 async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
+
     let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+    if segments.len() == 1 {
+        match subroutes.as_str() {
+            "" => return send_view_file(&"index.html".to_string()),
+            "manifest.json" => return send_view_file(&"view/manifest.json".to_string()),
+            "robots.txt" => return send_view_file(&"view/robots.txt".to_string()),
+            _ => return not_found()
+        }
+    }
 
     match segments.remove(0) {
-        "" => send_view_file(&"index.html".to_string()),
         "view" => send_view_file(subroutes),
         _ => not_found()
     }
@@ -94,7 +102,7 @@ async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpRespons
 
     match segments.remove(0) {
         "api" => rest_api_post(subroutes, &body),
-        _ => not_found()
+        _ => bad_request("This endpoint does not exist".to_string())
     }
 }
 
@@ -105,7 +113,7 @@ fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
     }
     let segments: &mut Vec<&str> = &mut uri.split("/").collect();
     segments.remove(0);  // api
-    if segments.len() > 1 {
+    if segments.len() != 1 {
         return bad_request("This endpoint does not exist".to_string());
     }
     match create_one(&segments.remove(0).to_string(), &body_str.unwrap().to_string()) {

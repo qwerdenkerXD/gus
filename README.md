@@ -13,3 +13,7 @@ So feel free to try the current state.
  - [Linux](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-linux)
  - [MacOS](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-mac)
  - [Windows](https://www.github.com/qwerdenkerXD/gus/raw/debug-binaries/gus-win.exe)
+
+Of course you can compile them by yourself for your OS.
+<br>Simply run:<br>
+`cargo install --git https://github.com/qwerdenkerXD/gus`

@@ -98,7 +98,10 @@ impl StorageHandler for JsonStorageHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::AttrName;
+    use super::super::{
+        TruePrimitiveType,
+        AttrName
+    };
 
     #[test]
     // test not completed, testing just the basic creation

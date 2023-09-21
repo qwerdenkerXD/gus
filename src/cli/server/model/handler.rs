@@ -7,7 +7,6 @@ use std::io::{
     Error
 };
 use super::{
-    StorageHandler,
     ModelName,
     TrueType,
     Record
@@ -25,6 +24,13 @@ use serde_json::{
 #[derive(serde_derive::Serialize, Debug, clap::ValueEnum, Clone)]
 pub enum StorageTypes {
     json
+}
+
+pub trait StorageHandler {
+    fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record>;
+    fn read_one(&self, id: &TrueType) -> Result<Record>;
+    fn update_one(&self, id: &TrueType, record: Record) -> Result<Record>;
+    fn delete_one(&self, id: &TrueType) -> Result<Record>;
 }
 
 pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName) -> impl StorageHandler {

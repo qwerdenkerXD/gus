@@ -73,8 +73,7 @@ async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
     if segments.len() == 1 {
         match subroutes.as_str() {
             "" => return send_view_file(&"index.html".to_string()),
-            "manifest.json" => return send_view_file(&"view/manifest.json".to_string()),
-            "robots.txt" => return send_view_file(&"view/robots.txt".to_string()),
+            "robots.txt" => return send_view_file(&"robots.txt".to_string()),
             _ => return not_found()
         }
     }

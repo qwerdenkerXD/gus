@@ -13,14 +13,15 @@ use super::super::{
     Record
 };
 use std::fs::{
-    write,
-    read_to_string
+    read_to_string,
+    write
 };
 use serde_json::{
     to_string,
     from_str
 };
 
+const STORAGE_FILE: &'static str = "./data.json.gus";
 
 pub struct JsonStorageHandler {
     pub model_name: ModelName
@@ -28,37 +29,34 @@ pub struct JsonStorageHandler {
 
 impl JsonStorageHandler {
     fn read_db(&self) -> Result<HashMap<ModelName, HashMap<String, Record>>> {
-        let storage_file: &str = "data.json.gus";
-        if let Ok(data) = read_to_string(storage_file) {
-            let mut db: HashMap<ModelName, HashMap<String, Record>>;
-            match from_str(&data) {
-                Ok(parsed) => db = parsed,
-                Err(err) => {
-                    if err.is_eof() {
-                        db = HashMap::new();
-                    } else {
-                        return Err(err.into());
+        let mut db: HashMap<ModelName, HashMap<String, Record>> = HashMap::new();
+        match read_to_string(STORAGE_FILE) {
+            Ok(data) => {
+                match from_str(&data) {
+                    Ok(parsed) => db = parsed,
+                    Err(err) => {
+                        if !err.is_eof() {
+                            return Err(err.into());
+                        }
                     }
                 }
+            },
+            Err(err) => {
+                match err.kind() {
+                    ErrorKind::NotFound => (),
+                    other => return Err(Error::new(other, format!("Unable to read storage file {}", STORAGE_FILE).as_str()))
+                }
             }
-            if db.get(&self.model_name).is_none() {
-                db.insert(self.model_name.clone(), HashMap::new());
-            }
-            return Ok(db.clone())
         }
-        if PathBuf::from(storage_file).as_path().is_file() {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Unable to read storage file ./data.json.gus"));
+
+        if db.get(&self.model_name).is_none() {
+            db.insert(self.model_name.clone(), HashMap::new());
         }
-        match write(storage_file, "") {
-            Ok(_) => return Ok(HashMap::from([
-                (self.model_name.clone(), HashMap::new())
-            ])),
-            Err(err) => return Err(Error::new(ErrorKind::PermissionDenied, "Unable to create storage file ./data.json.gus"))
-        }
+        return Ok(db.clone())
     }
     fn save(&self, db: &mut HashMap<ModelName, HashMap<String, Record>>) -> Result<()> {
-        if let Err(err) = write("./data.json.gus", &to_string(db).unwrap()) {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Unable to write data to storage file ./data.json.gus"));
+        if write(STORAGE_FILE, &to_string(db).unwrap()).is_err() {
+            return Err(Error::new(ErrorKind::PermissionDenied, format!("Unable to write data to storage file {}", STORAGE_FILE).as_str()));
         }
 
         Ok(())
@@ -100,11 +98,78 @@ mod tests {
         AttrName
     };
 
+    use std::fs::remove_file;
+
+    fn pre_test() {
+        if PathBuf::from(STORAGE_FILE).as_path().is_file() {
+            assert!(remove_file(STORAGE_FILE).is_ok(), "Storage file {} already existing, unable to remove", STORAGE_FILE);
+        }
+    }
+
+    fn post_test() {
+        if PathBuf::from(STORAGE_FILE).as_path().is_file() {
+            assert!(remove_file(STORAGE_FILE).is_ok(), "Unable to remove storage file {} after test", STORAGE_FILE);
+        }
+    }
+
     #[test]
+    fn test_json_storage_handler() {
+        test_read_db();
+        test_create_one();
+    }
+
+    fn test_read_db() {
+        pre_test();
+
+        let handler = JsonStorageHandler {
+            model_name: ModelName(AttrName("movie".to_string()))
+        };
+
+        // storage file doesn't exist
+        let mut db: Result<HashMap<ModelName, HashMap<String, Record>>> = handler.read_db();
+        assert!(db.is_ok(), "Unexpected Error when reading not existing storage file");
+        let mut expected: HashMap<ModelName, HashMap<String, Record>> = HashMap::from([
+            (handler.model_name.clone(), HashMap::new())
+        ]);
+        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {} when reading not existing storage file", "{<model name>: {}}");
+
+        // storage file empty
+        // create file instead of write because it is not interpreted as existing
+        assert!(write(STORAGE_FILE, "").is_ok(), "Unable to write storage file for tests");
+        db = handler.read_db();
+        assert!(db.is_ok(), "Unexpected Error after reading from empty storage file");
+        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {} when reading from empty storage file", "{<model name>: {}}");
+
+        // storage file with data, movie missing
+        assert!(write(STORAGE_FILE, "{\"another\": {\"1\": {\"id\": 1}}}").is_ok(), "Unable to write storage file for tests");
+        db = handler.read_db();
+        assert!(db.is_ok(), "Unexpected Error after reading from valid storage file with no respective model data");
+        let mut expected: HashMap<ModelName, HashMap<String, Record>> = HashMap::from([
+            (ModelName(AttrName("another".to_string())), HashMap::from([
+                    (
+                        "1".to_string(),
+                        HashMap::from([(AttrName("id".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1)))])
+                    )
+                ])
+            ),
+            (handler.model_name.clone(), HashMap::new())
+        ]);
+        assert_eq!(&db.unwrap(), &expected, "Gotten HashMap doesn't match the expected when reading from valid storage file with data but no respective model data");
+
+        // storage file not JSON
+        assert!(write(STORAGE_FILE, "i am not json {\"\":false}").is_ok(), "Unable to write storage file for tests");
+        db = handler.read_db();
+        assert!(db.is_err(), "Expected Error after reading from invalid storage file");
+
+        post_test();
+    }
+
     // test not completed, testing just the basic creation
     // reading empty data file is also sth. to test
     // also test all primary key types
-    fn test_json_create_one() {
+    fn test_create_one() {
+        pre_test();
+
         let handler = JsonStorageHandler {
             model_name: ModelName(AttrName("movie".to_string()))
         };
@@ -117,5 +182,7 @@ mod tests {
         ]);
         assert_eq!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).unwrap(), record, "Creating a valid new record failed");
         assert!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).is_err(), "Created a new record with already existing id");
+
+        post_test(); 
     }
 }

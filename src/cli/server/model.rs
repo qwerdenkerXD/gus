@@ -35,7 +35,12 @@ pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
         let storage_handler = get_handler(&args.storage_type, name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let record: Record = parse_record(json, &model)?;
+
+        // testing the storage_handler is done inside the respective storage_handler module
+        #[cfg(not(test))]
         return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
+        #[cfg(test)]
+        return Ok(record);
     };
     todo!("creating records is currently only possible when the server is running")
 }

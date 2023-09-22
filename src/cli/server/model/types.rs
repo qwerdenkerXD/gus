@@ -3,7 +3,6 @@ use serde::de;
 use std::fmt;
 
 // used traits
-use std::cmp::PartialEq;
 use serde::Deserializer;
 use std::convert::TryFrom;
 use serde_json::Value;
@@ -42,14 +41,14 @@ pub enum PrimitiveType {
     // Float
 }
 
-#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 #[serde(untagged)]
 pub enum TrueType {
     Primitive(TruePrimitiveType),
     Array(Vec<TruePrimitiveType>)
 }
 
-#[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 #[serde(untagged)]
 pub enum TruePrimitiveType {
     Integer(i64),

@@ -1,14 +1,14 @@
 mod types;
-mod handler;
+mod storage_handler;
 
 //used modules
 use crate::cli;
 
 pub use types::*;
-use handler::*;
+use storage_handler::*;
 
 // used types
-pub use handler::StorageTypes;
+pub use storage_handler::StorageTypes;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::fs::ReadDir;

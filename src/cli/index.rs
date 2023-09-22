@@ -46,26 +46,18 @@ pub struct CreateModel {
 }
 
 pub fn get_validated_args() -> Result<Cli, ClapError> {
-    let mut cli = Cli::parse();
+    #[cfg(not(test))]
+    let cli = Cli::parse();
+
     #[cfg(test)]
-    {
-        cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
-    }
+    let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
+
     validate_args(cli)
 }
 
 pub fn get_valid_start_args() -> Option<StartServer> {
     if let Ok(args) = get_validated_args() {
         if let Commands::Start(args) = args.command {
-            return Some(args);
-        }
-    }
-    None
-}
-
-pub fn get_valid_create_model_args() -> Option<CreateModel> {
-    if let Ok(args) = get_validated_args() {
-        if let Commands::CreateModel(args) = args.command {
             return Some(args);
         }
     }
@@ -96,7 +88,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_Cli_parse() {
+    fn test_cli_parse() {
         if let Ok(_) = Cli::try_parse_from(vec!["gus", "start", "-p", "-1"]) {
             assert!(false, "Expected Error when passing negatives to -p");
         }

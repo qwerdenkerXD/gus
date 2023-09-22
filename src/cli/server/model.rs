@@ -35,14 +35,43 @@ pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
         let storage_handler = get_handler(&args.storage_type, name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let record: Record = parse_record(json, &model)?;
-
-        // testing the storage_handler is done inside the respective storage_handler module
-        #[cfg(not(test))]
         return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
-        #[cfg(test)]
-        return Ok(record);
     };
     todo!("creating records is currently only possible when the server is running")
+}
+
+pub fn read_one(model_name: &String, id: &String) -> Result<Record> {
+    if let Some(args) = cli::get_valid_start_args() {
+        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        let storage_handler = get_handler(&args.storage_type, name);
+        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        return storage_handler.read_one(true_id);
+    };
+    todo!("reading records is currently only possible when the server is running")
+}
+
+
+fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
+    let key: &AttrName = &model.primary_key;
+    let key_type: &AttrType = model.attributes.get(key).unwrap();
+
+    match key_type {
+        AttrType::Primitive(PrimitiveType::String) => { 
+            let value: Value = parse(format!("{:?}", id).as_str()).unwrap();
+            Ok(TrueType::Primitive(to_true_prim_type(&value, &PrimitiveType::String, &true)?))
+        },
+        AttrType::Primitive(other) => {
+            if let Ok(val) = parse::<Value>(id.as_str()) {
+                Ok(TrueType::Primitive(to_true_prim_type(&val, &other, &true)?))
+            } else {
+                Err(Error::new(ErrorKind::InvalidData, "Invalid value for primary key"))
+            }
+        },
+
+        // this shouldn't occur, since the model definition should be validated before
+        _ => Err(Error::new(ErrorKind::Unsupported, "Arrays for keys aren't allowed"))
+    }
 }
 
 

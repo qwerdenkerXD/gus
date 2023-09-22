@@ -1,6 +1,5 @@
 // used types
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::io::{
     ErrorKind,
     Result,
@@ -77,7 +76,13 @@ impl StorageHandler for JsonStorageHandler {
         return Ok(record.clone());
     }
     fn read_one(&self, id: &TrueType) -> Result<Record> {
-        todo!();
+        let id_string: &String = &to_string(id).unwrap();
+        let db = self.read_db()?;
+        let data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
+        match data.get(id_string) {
+            Some(record) => Ok(record.clone()),
+            None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {}", id_string).as_str())),
+        }
     }
     fn update_one(&self, id: &TrueType, record: Record) -> Result<Record> {
         todo!();
@@ -93,6 +98,7 @@ impl StorageHandler for JsonStorageHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use crate::cli::server::model::{
         TruePrimitiveType,
         AttrName
@@ -113,6 +119,10 @@ mod tests {
     }
 
     #[test]
+    /*
+        The tests are executed inside one test method because of the access on the same storage file.
+        Since tests will be run in parallel threads, they would influence each other.
+    */
     fn test_json_storage_handler() {
         test_read_db();
         test_create_one();
@@ -144,7 +154,7 @@ mod tests {
         assert!(write(STORAGE_FILE, "{\"another\": {\"1\": {\"id\": 1}}}").is_ok(), "Unable to write storage file for tests");
         db = handler.read_db();
         assert!(db.is_ok(), "Unexpected Error after reading from valid storage file with no respective model data");
-        let mut expected: HashMap<ModelName, HashMap<String, Record>> = HashMap::from([
+        expected = HashMap::from([
             (ModelName(AttrName("another".to_string())), HashMap::from([
                     (
                         "1".to_string(),
@@ -183,6 +193,6 @@ mod tests {
         assert_eq!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).unwrap(), record, "Creating a valid new record failed");
         assert!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).is_err(), "Created a new record with already existing id");
 
-        post_test(); 
+        post_test();
     }
 }

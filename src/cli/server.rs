@@ -3,6 +3,7 @@ mod view;
 
 
 // used types
+use std::str::Utf8Error;
 use model::Record;
 use std::io::Error;
 use actix_web::{
@@ -15,6 +16,15 @@ use actix_web::web::{
     Path as UriParam
 };
 
+// used functions
+use std::str::from_utf8;
+use model::{
+    create_one,
+    read_one,
+    update_one,
+    delete_one
+};
+
 // used derive macros
 use serde_derive::{
     Deserialize,
@@ -25,12 +35,6 @@ use actix_web::{
     get,
     put,
     delete
-};
-use model::{
-    create_one,
-    read_one,
-    update_one,
-    delete_one
 };
 
 // used functions
@@ -132,7 +136,7 @@ async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpRespons
 }
 
 fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
-    let body_str: Result<&str, std::str::Utf8Error> = std::str::from_utf8(body);
+    let body_str: Result<&str, Utf8Error> = from_utf8(body);
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
@@ -163,7 +167,7 @@ async fn uri_handler_put(body: BodyBytes, uri: UriParam<String>) -> HttpResponse
 }
 
 fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
-    let body_str: Result<&str, std::str::Utf8Error> = std::str::from_utf8(body);
+    let body_str: Result<&str, Utf8Error> = from_utf8(body);
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
@@ -208,5 +212,69 @@ fn rest_api_delete(uri: &String) -> HttpResponse {
             data: record
         }),
         Err(err) => bad_request(format!("{}", err))
+    }
+}
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    use actix_web::test::TestRequest;
+    use actix_web::body::MessageBody;
+    use std::path::PathBuf;
+
+    use std::fs::remove_file;
+    use serde_json::from_str;
+    use actix_web::test::{
+        init_service,
+        call_service
+    };
+
+    fn pre_test(file_name: &str) {
+        if PathBuf::from(file_name).as_path().is_file() {
+            assert!(remove_file(file_name).is_ok(), "Storage file {} already existing, unable to remove", file_name);
+        }
+    }
+
+    fn post_test(file_name: &str) {
+        if PathBuf::from(file_name).as_path().is_file() {
+            assert!(remove_file(file_name).is_ok(), "Unable to remove storage file {} after test", file_name);
+        }
+    }
+
+    #[actix_web::test]
+    // not completed
+    async fn test_rest_api_post() {
+        const TEST_STORAGE_FILE: &'static str = "server.data.test.json";
+
+        pre_test(TEST_STORAGE_FILE);
+
+        let app = init_service(App::new().service(uri_handler_post)).await;
+
+        let valid_input = r#"
+            {
+                "id": 1,
+                "name": "Natural Born Killers",
+                "year": 1994,
+                "actors": ["Woody Harrelson", "Juliette Lewis"],
+                "recommended": true
+            }
+        "#;
+        let req = TestRequest::post().uri("/api/movie")
+                                     .set_payload(valid_input)
+                                     .to_request();
+        let res = call_service(&app, req).await;
+        assert!(res.status().is_success(), "Unexpected error when creating a valid record");
+
+        let expected: Record = from_str(valid_input).unwrap();
+        let res_body: BodyBytes = res.into_body().try_into_bytes().unwrap();
+        let res_data: JsonData = from_str(from_utf8(&res_body).unwrap()).unwrap();
+        assert_eq!(res_data.data, expected, "Sent data doesn't match the response");
+
+        post_test(TEST_STORAGE_FILE);
     }
 }

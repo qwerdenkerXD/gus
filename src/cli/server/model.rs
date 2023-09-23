@@ -425,18 +425,18 @@ mod tests {
         };
 
         let expected_result: ModelDefinition = movie_model;
-        assert_eq!(&parse_model(Path::new("./src/cli/server/test_models"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
+        assert_eq!(&parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_model(Path::new("./src/cli/server/test_models"), &ModelName(AttrName("movie_clone".to_string()))) {
+        if let Ok(_) = parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie_clone".to_string()))) {
             // test a not existing directory
             assert!(false, "Expected error for parsing a valid model with duplicate model name");
         }
-        if let Ok(_) = parse_model(Path::new("./src/cli/server/not_existing_dir"), &ModelName(AttrName("movie".to_string()))) {
+        if let Ok(_) = parse_model(Path::new("./testing/server/not_existing_dir"), &ModelName(AttrName("movie".to_string()))) {
             // test a not existing directory
             assert!(false, "Expected error for not existing models' path");
         }
-        if let Ok(_) = parse_model(Path::new("./src/cli/server/test_models/dummy_dir"), &ModelName(AttrName("movie".to_string()))) {
+        if let Ok(_) = parse_model(Path::new("./testing/server/dummy_dir"), &ModelName(AttrName("movie".to_string()))) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no matching model definitions");
         }
@@ -464,14 +464,14 @@ mod tests {
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models(Path::new("./src/cli/server/test_models")).unwrap(), &expected_result);
+        assert_eq!(&parse_models(Path::new("./testing/server")).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models(Path::new("./src/cli/server/not_existing_dir")) {
+        if let Ok(_) = parse_models(Path::new("./testing/server/not_existing_dir")) {
             // test a not existing directory
             assert!(false, "Expected error for not existing models' path");
         }
-        if let Ok(_) = parse_models(Path::new("./src/cli/server/test_models/dummy_dir")) {
+        if let Ok(_) = parse_models(Path::new("./testing/server/dummy_dir")) {
             // test a directory without any valid model definitions
             assert!(false, "Expected error for no existing valid model definitions");
         }

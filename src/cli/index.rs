@@ -48,22 +48,27 @@ pub struct CreateModel {
 }
 
 pub fn get_validated_args() -> Result<Cli, ClapError> {
-    #[cfg(not(test))]
     let cli = Cli::parse();
-
-    #[cfg(test)]
-    let cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./src/cli/server/test_models"]).unwrap();
 
     validate_args(cli)
 }
 
 pub fn get_valid_start_args() -> Option<StartServer> {
-    if let Ok(args) = get_validated_args() {
-        if let Commands::Start(args) = args.command {
-            return Some(args);
+    #[cfg(not(test))]
+    {
+        if let Ok(args) = get_validated_args() {
+            if let Commands::Start(args) = args.command {
+                return Some(args);
+            }
         }
+
+        None
     }
-    None
+
+    #[cfg(test)]
+    {
+        return Some(StartServer::try_parse_from(vec!["start", "-m", "./testing/server", "-s", "./testing/server/storages.json"]).unwrap());
+    }
 }
 
 fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {

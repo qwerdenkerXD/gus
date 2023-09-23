@@ -36,6 +36,7 @@ pub enum StorageType {
 type Storages = HashMap<StorageType, Option<StorageConfig>>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
 enum StorageConfig {
     Json(JsonStorageConfig)
 }

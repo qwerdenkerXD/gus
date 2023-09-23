@@ -15,11 +15,11 @@ use std::fs::{
 };
 
 fn main() {
-    println!("cargo:rerun-if-changed=./src/cli/server/view_files");
+    println!("cargo:rerun-if-changed=./react_app/view_files");
 
     let manifest_dir: String = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut in_dir = PathBuf::from(&manifest_dir);
-    in_dir.push("src/cli/server/view_files");
+    in_dir.push("react_app/view_files");
     
     let mut view_rs: String = String::from("
 use std::collections::HashMap;

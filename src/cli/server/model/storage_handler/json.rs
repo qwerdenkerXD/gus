@@ -192,7 +192,7 @@ mod tests {
         assert_eq!(&db.unwrap(), &expected, "Gotten HashMap doesn't match the expected when reading from valid storage file with data but no respective model data");
 
         // storage file not JSON
-        assert!(write(STORAGE_FILE, "i am not json {\"\":false}").is_ok(), "Unable to write storage file for tests");
+        assert!(write(STORAGE_FILE, "i am not json {\"id\":false}").is_ok(), "Unable to write storage file for tests");
         db = handler.read_db();
         assert!(db.is_err(), "Expected Error after reading from invalid storage file");
 

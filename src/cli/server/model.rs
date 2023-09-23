@@ -51,6 +51,28 @@ pub fn read_one(model_name: &String, id: &String) -> Result<Record> {
     todo!("reading records is currently only possible when the server is running")
 }
 
+pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Record> {
+    if let Some(args) = cli::get_valid_start_args() {
+        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        let storage_handler = get_handler(&args.storage_type, name);
+        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let record: Record = parse_record(json, &model)?;
+        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        return storage_handler.update_one(true_id, &model.primary_key, &record);
+    };
+    todo!("updating records is currently only possible when the server is running")
+}
+
+pub fn delete_one(model_name: &String, id: &String) -> Result<Record> {
+    if let Some(args) = cli::get_valid_start_args() {
+        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        let storage_handler = get_handler(&args.storage_type, name);
+        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        return storage_handler.delete_one(true_id);
+    };
+    todo!("reading records is currently only possible when the server is running")
+}
 
 fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
     let key: &AttrName = &model.primary_key;

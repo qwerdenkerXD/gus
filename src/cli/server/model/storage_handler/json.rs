@@ -8,6 +8,7 @@ use std::io::{
 use super::StorageHandler;
 use super::super::{
     ModelName,
+    AttrName,
     TrueType,
     Record
 };
@@ -84,11 +85,29 @@ impl StorageHandler for JsonStorageHandler {
             None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {}", id_string).as_str())),
         }
     }
-    fn update_one(&self, id: &TrueType, record: Record) -> Result<Record> {
-        todo!();
+    fn update_one(&self, id: &TrueType, id_attr: &AttrName, record: &Record) -> Result<Record> {
+        let id_string: String = to_string(id).unwrap();
+        let db = &mut self.read_db()?;
+        let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
+        let mut new_record: Record = record.clone();
+        new_record.insert(id_attr.clone(), id.clone());
+
+        data.insert(id_string, new_record.clone());
+        db.insert(self.model_name.clone(), data);
+        self.save(db)?;
+        return Ok(new_record);
     }
     fn delete_one(&self, id: &TrueType) -> Result<Record> {
-        todo!();
+        let id_string: String = to_string(id).unwrap();
+        let db = &mut self.read_db()?;
+        let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
+        let record: Option<Record> = data.remove(&id_string);
+        if record.is_none() {
+            return Err(Error::new(ErrorKind::NotFound, format!("No record found to remove with id: {}", id_string).as_str()));
+        }
+        db.insert(self.model_name.clone(), data);
+        self.save(db)?;
+        return Ok(record.unwrap());
     }
 }
 

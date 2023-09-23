@@ -4,6 +4,7 @@ use json::JsonStorageHandler;
 use std::io::Result;
 use super::{
     ModelName,
+    AttrName,
     TrueType,
     Record
 };
@@ -17,7 +18,7 @@ pub enum StorageTypes {
 pub trait StorageHandler {
     fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record>;
     fn read_one(&self, id: &TrueType) -> Result<Record>;
-    fn update_one(&self, id: &TrueType, record: Record) -> Result<Record>;
+    fn update_one(&self, id: &TrueType, id_attr: &AttrName, record: &Record) -> Result<Record>;
     fn delete_one(&self, id: &TrueType) -> Result<Record>;
 }
 

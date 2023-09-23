@@ -1,6 +1,6 @@
 {
-    "model_name": "movie_clone",
-    "storage_type": "json",
+    "model_name": "movie",
+    "storage_type": "invalid",
     "attributes": {
         "id": "Integer",
         "name": "String",

@@ -8,7 +8,7 @@ pub use types::*;
 use storage_handler::*;
 
 // used types
-pub use storage_handler::StorageTypes;
+pub use storage_handler::StorageType;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::fs::ReadDir;
@@ -32,8 +32,8 @@ use std::fs::{
 pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        let storage_handler = get_handler(&args.storage_type, name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let storage_handler = get_handler(&model.storage_type, name);
         let record: Record = parse_record(json, &model)?;
         return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
     };
@@ -43,8 +43,8 @@ pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
 pub fn read_one(model_name: &String, id: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        let storage_handler = get_handler(&args.storage_type, name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let storage_handler = get_handler(&model.storage_type, name);
         let true_id: &TrueType = &parse_id_string(id, &model)?;
         return storage_handler.read_one(true_id);
     };
@@ -54,8 +54,8 @@ pub fn read_one(model_name: &String, id: &String) -> Result<Record> {
 pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        let storage_handler = get_handler(&args.storage_type, name);
         let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let storage_handler = get_handler(&model.storage_type, name);
         let mut required: Vec<AttrName> = model.required;
         model.required = vec!();
 
@@ -78,8 +78,8 @@ pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Rec
 pub fn delete_one(model_name: &String, id: &String) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        let storage_handler = get_handler(&args.storage_type, name);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let storage_handler = get_handler(&model.storage_type, name);
         let true_id: &TrueType = &parse_id_string(id, &model)?;
         return storage_handler.delete_one(true_id);
     };
@@ -295,6 +295,7 @@ mod tests {
 
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
+            storage_type: StorageType::json,
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
@@ -406,6 +407,7 @@ mod tests {
     fn test_parse_model() {
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
+            storage_type: StorageType::json,
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
@@ -444,6 +446,7 @@ mod tests {
     fn test_parse_models() {
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
+            storage_type: StorageType::json,
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),

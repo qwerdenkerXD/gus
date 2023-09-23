@@ -4,6 +4,7 @@ mod server;
 pub use index::*;
 
 // used types
+use server::model::StorageType;
 use dialoguer::console::Style;
 use std::collections::HashMap;
 use server::model::{
@@ -67,6 +68,18 @@ pub fn create_model(args: CreateModel) {
         .validate_with(AttrValidator)
         .interact_text()
         .unwrap();
+
+    // get storage type
+    let storage_types: Vec<&str> = vec!(
+        "json"
+    );
+    let storage_type_selection: usize = Select::with_theme(&ColorfulTheme::default())
+        .with_prompt("Storage Type:")
+        .default(0)
+        .items(&storage_types)
+        .interact()
+        .unwrap();
+    let storage_type: StorageType = from_str(format!("\"{}\"", storage_types[storage_type_selection]).as_str()).unwrap();
 
     // define attributes
     loop {
@@ -177,6 +190,7 @@ pub fn create_model(args: CreateModel) {
     // create model definition
     let created_model = ModelDefinition {
         model_name: ModelName(AttrName::try_from(&model_name).unwrap()),
+        storage_type: storage_type,
         attributes: attributes.clone(),
         primary_key: AttrName::try_from(&primary_key).unwrap(),
         required: required,

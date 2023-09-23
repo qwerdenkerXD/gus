@@ -2,15 +2,21 @@ mod json;
 
 use json::JsonStorageHandler;
 use std::io::Result;
+use serde_derive::{
+    Deserialize,
+    Serialize
+};
 use super::{
     ModelName,
     TrueType,
     Record
 };
 
+
 #[allow(non_camel_case_types)]
-#[derive(serde_derive::Serialize, Debug, clap::ValueEnum, Clone)]
-pub enum StorageTypes {
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+// if adding storage types, add them in the create-model dialogue in cli.rs too
+pub enum StorageType {
     json
 }
 
@@ -21,9 +27,9 @@ pub trait StorageHandler {
     fn delete_one(&self, id: &TrueType) -> Result<Record>;
 }
 
-pub fn get_handler(storage_type: &StorageTypes, model_name: &ModelName) -> impl StorageHandler {
+pub fn get_handler(storage_type: &StorageType, model_name: &ModelName) -> impl StorageHandler {
     match storage_type {
-        StorageTypes::json => JsonStorageHandler {
+        StorageType::json => JsonStorageHandler {
             model_name: model_name.clone(),
         },
     }

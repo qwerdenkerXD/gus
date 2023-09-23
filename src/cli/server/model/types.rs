@@ -3,6 +3,7 @@ use serde::de;
 use std::fmt;
 
 // used traits
+use super::StorageType;
 use serde::Deserializer;
 use std::convert::TryFrom;
 use serde_json::Value;
@@ -84,6 +85,7 @@ pub struct ArrayConstraint;
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub struct ModelDefinition {
     pub model_name: ModelName,
+    pub storage_type: StorageType,
     pub attributes: Attributes,
     pub primary_key: AttrName,
     pub required: Vec<AttrName>,
@@ -251,6 +253,7 @@ mod tests {
         // test primary key of type array
         let model = &ModelDefinition {
             model_name: ModelName(AttrName("Test".to_string())),
+            storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Array([PrimitiveType::String]))
@@ -263,6 +266,7 @@ mod tests {
         // test not existing primary key attribute
         let model = &ModelDefinition {
             model_name: ModelName(AttrName("Test".to_string())),
+            storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::new(),
             required: vec!(AttrName("id".to_string())),
@@ -273,6 +277,7 @@ mod tests {
         // test not required primary key
         let model = &ModelDefinition {
             model_name: ModelName(AttrName("Test".to_string())),
+            storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
@@ -285,6 +290,7 @@ mod tests {
         // test not existing required attribute
         let model = &ModelDefinition {
             model_name: ModelName(AttrName("Test".to_string())),
+            storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
             attributes: HashMap::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))

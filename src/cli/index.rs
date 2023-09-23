@@ -1,5 +1,4 @@
 // used types
-use super::server::model::StorageTypes;
 use std::path::PathBuf;
 pub use clap::{
     Error as ClapError,
@@ -33,9 +32,7 @@ pub struct StartServer {
     #[clap(short, long, default_value = "8080", help = "The port to start the webserver on")]
     pub port: u16,
     #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
-    pub modelspath: PathBuf,
-    #[clap(short, long, name = "STORAGE_TYPE", default_value = "json", help = "The path to the model definitions")]
-    pub storage_type: StorageTypes
+    pub modelspath: PathBuf
 }
 
 #[derive(Parser, Debug)]

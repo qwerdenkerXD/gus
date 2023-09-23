@@ -136,7 +136,7 @@ pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
     }
     for attr in &definition.required {
         if !definition.attributes.contains_key(attr) {
-            return Err(Error::new(ErrorKind::InvalidData, format!("invalid required attribute {:?}", &attr)));
+            return Err(Error::new(ErrorKind::InvalidData, format!("invalid required attribute {:?}", &attr.0)));
         }
     }
 
@@ -215,25 +215,25 @@ pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required:
         PrimitiveType::Integer => {
             match value.as_i64() {
                 Some(val) => Ok(TruePrimitiveType::Integer(val)),
-                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Integer\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: Integer"))
             }
         },
         PrimitiveType::String => {
             match value.as_str() {
                 Some(val) => Ok(TruePrimitiveType::String(val.to_string())),
-                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"String\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: String"))
             }
         },
         PrimitiveType::Boolean => {
             match value.as_bool() {
                 Some(val) => Ok(TruePrimitiveType::Boolean(val)),
-                None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Boolean\""))
+                None => Err(Error::new(ErrorKind::InvalidData, "expected: Boolean"))
             }
         },
         // PrimitiveType::Float => {
         //     match value.as_f64() {
         //         Some(val) => Ok(TruePrimitiveType::Float(val)),
-        //         None => Err(Error::new(ErrorKind::InvalidData, "expected: \"Float\""))
+        //         None => Err(Error::new(ErrorKind::InvalidData, "expected: Float"))
         //     }
         // },
     }

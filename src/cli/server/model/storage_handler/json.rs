@@ -8,7 +8,6 @@ use std::io::{
 use super::StorageHandler;
 use super::super::{
     ModelName,
-    AttrName,
     TrueType,
     Record
 };
@@ -69,7 +68,7 @@ impl StorageHandler for JsonStorageHandler {
         let db = &mut self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         if data.get(&id_string).is_some() {
-            return Err(Error::new(ErrorKind::AlreadyExists, "A record for the given key already exists, try to update it instead"));
+            return Err(Error::new(ErrorKind::AlreadyExists, "A record for the given key already exists, try to update it instead (PUT)"));
         }
         data.insert(id_string, record.clone());
         db.insert(self.model_name.clone(), data);
@@ -85,12 +84,19 @@ impl StorageHandler for JsonStorageHandler {
             None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {}", id_string).as_str())),
         }
     }
-    fn update_one(&self, id: &TrueType, id_attr: &AttrName, record: &Record) -> Result<Record> {
+    fn update_one(&self, id: &TrueType, record: &Record) -> Result<Record> {
         let id_string: String = to_string(id).unwrap();
         let db = &mut self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
-        let mut new_record: Record = record.clone();
-        new_record.insert(id_attr.clone(), id.clone());
+        let mut new_record: Record;
+        if let Some(orig_record) = data.get(&id_string) {
+            new_record = orig_record.clone();
+            for (key, value) in record {
+                new_record.insert(key.clone(), value.clone());
+            }
+        } else {
+            return Err(Error::new(ErrorKind::NotFound, "No record found for the given key, try to create it instead (POST)"));
+        }
 
         data.insert(id_string, new_record.clone());
         db.insert(self.model_name.clone(), data);

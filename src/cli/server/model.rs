@@ -55,10 +55,22 @@ pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Rec
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let storage_handler = get_handler(&args.storage_type, name);
-        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
+        let mut required: Vec<AttrName> = model.required;
+        model.required = vec!();
+
+        // parse record to get its attributes
         let record: Record = parse_record(json, &model)?;
+
+        // update models' required attributes to the necessary
+        required.retain(|a| record.get(&a).is_some());
+        model.required = required.clone();
+
+        // parse the record again, this time with correct requirement check
+        let mut valid_record: Record = parse_record(json, &model)?;
         let true_id: &TrueType = &parse_id_string(id, &model)?;
-        return storage_handler.update_one(true_id, &model.primary_key, &record);
+        valid_record.insert(model.primary_key.clone(), true_id.clone());
+        return storage_handler.update_one(true_id, &record);
     };
     todo!("updating records is currently only possible when the server is running")
 }
@@ -115,7 +127,7 @@ pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDef
     let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
     models.retain(|m| &m.model_name == model_name);
     if models.len() == 0 {
-        return Err(Error::new(NotFound, format!("model {:?} not found", model_name)));
+        return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
     }
     Ok(models.remove(0))
 }
@@ -206,7 +218,7 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
     // check for missing required attributes
     for key in &model.required {
         if !parsed_json.as_ref().unwrap().contains_key(key) {
-            return Err(Error::new(InvalidData, format!("Missing attribute: {:?}", &serde_json::to_string(key))));
+            return Err(Error::new(InvalidData, format!("Missing attribute: {:?}", key.0)));
         };
     }
 
@@ -220,7 +232,7 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
                 AttrType::Primitive(prim_type) => {
                     match to_true_prim_type(&value, &prim_type, &is_required) {
                         Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
-                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key, err)))
+                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key.0, err)))
                     };
                 },
                 AttrType::Array(arr_type) => {
@@ -230,17 +242,17 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
                             for val in arr {
                                 match to_true_prim_type(val, &arr_type[0], &is_required) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value),
-                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key, err)))
+                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key.0, err)))
                                 };
                             }
                             record.insert(key, TrueType::Array(true_arr));
                         },
-                        None => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: \"Array\"", key)))
+                        None => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: Array", key.0)))
                     };
                 },
             }
         } else {
-            return Err(Error::new(InvalidData, format!("Unknown attribute: {:?}", key)));
+            return Err(Error::new(InvalidData, format!("Unknown attribute: {:?}", key.0)));
         }
     }
 

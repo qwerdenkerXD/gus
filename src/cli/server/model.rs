@@ -1,6 +1,8 @@
 mod types;
 mod storage_handler;
 
+pub mod model_cli;
+
 //used modules
 use crate::cli;
 

@@ -223,6 +223,7 @@ mod tests {
     use super::*;
 
 
+    use actix_web::dev::ServiceResponse;
     use actix_web::test::TestRequest;
     use actix_web::body::MessageBody;
     use std::path::PathBuf;
@@ -267,7 +268,7 @@ mod tests {
         let req = TestRequest::post().uri("/api/movie")
                                      .set_payload(valid_input)
                                      .to_request();
-        let res = call_service(&app, req).await;
+        let res: ServiceResponse = call_service(&app, req).await;
         assert!(res.status().is_success(), "Unexpected error when creating a valid record");
 
         let expected: Record = from_str(valid_input).unwrap();

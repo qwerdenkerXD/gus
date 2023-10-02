@@ -10,12 +10,12 @@ include!(concat!(env!("OUT_DIR"), "/view.rs"));
         or an Error if there isn't such file
 */
 pub fn get_view_file(uri: &String) -> Option<(ViewFile, ContentHeader)> {
-    if uri.ends_with("/") {
+    if uri.ends_with('/') {
         return None;
     }
-    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     let mut view_files: &ViewFiles = &get_view_files();
-    while segments.len() > 0 {
+    while !segments.is_empty() {
         if segments.len() > 1 {
             let entry = view_files.get(&URN::DirName(segments.remove(0).to_string()))?;
             if let Hierarchy::Dir(dir) = entry {

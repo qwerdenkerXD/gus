@@ -43,7 +43,7 @@ enum Hierarchy {
 fn get_view_files() -> ViewFiles {
     HashMap::from([
 ");
-    view_rs.push_str(visit_dirs(&in_dir).as_str());
+    view_rs.push_str(visit_dirs(in_dir.as_path()).as_str());
     view_rs.push_str("    ])\n}");
 
     let out_dir: String = env::var("OUT_DIR").unwrap();
@@ -51,9 +51,9 @@ fn get_view_files() -> ViewFiles {
     write(dest_path, &view_rs).unwrap();
 }
 
-fn visit_dirs(dir: &PathBuf) -> String {
+fn visit_dirs(dir: &Path) -> String {
     let mut view_rs: String = String::new();
-    for entry in read_dir(dir.as_path()).unwrap() {
+    for entry in read_dir(dir).unwrap() {
         let entry: DirEntry = entry.unwrap();
         let path: PathBuf = entry.path();
         if path.is_file() {
@@ -79,7 +79,7 @@ fn visit_dirs(dir: &PathBuf) -> String {
             }
         } else {
             view_rs.push_str(format!("        (URN::DirName({:?}.to_string()), Hierarchy::Dir(HashMap::from([\n", path.file_name().unwrap()).as_str());
-            view_rs.push_str(visit_dirs(&path).as_str());
+            view_rs.push_str(visit_dirs(path.as_path()).as_str());
             view_rs.push_str("        ]))),\n");
         }
     }

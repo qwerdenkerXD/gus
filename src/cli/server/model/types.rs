@@ -96,7 +96,7 @@ impl TryFrom<&String> for ModelDefinition {
     type Error = Error;
 
     fn try_from(json: &String) -> core::result::Result<Self, Self::Error> {
-        if let Ok(model) = parse::<ModelDefinition>(&json) {
+        if let Ok(model) = parse::<ModelDefinition>(json) {
             validate_model_definition(&model)?;
             Ok(model)
         } else {
@@ -191,11 +191,12 @@ impl<'de> de::Deserialize<'de> for AttrName {
 }
 
 fn validate_attr_name(name: &String) -> Result<()> {
-    let mut regex: Vec<Regex> = vec!();
-    regex.push(Regex::new(r#"^[A-Z][a-zA-Z]*$"#).unwrap());  // PascalCase
-    regex.push(Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap());  // camelCase
-    regex.push(Regex::new(r#"^[a-z]+(_[a-z]+)*$"#).unwrap());  // snake_case
-    regex.push(Regex::new(r#"^[a-z]+(-[a-z]+)*$"#).unwrap());  // spinal-case
+    let regex: Vec<Regex> = vec!(
+        Regex::new(r#"^[A-Z][a-zA-Z]*$"#).unwrap(),  // PascalCase
+        Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap(),  // camelCase
+        Regex::new(r#"^[a-z]+(_[a-z]+)*$"#).unwrap(),  // snake_case
+        Regex::new(r#"^[a-z]+(-[a-z]+)*$"#).unwrap()  // spinal-case
+    );
 
     for r in regex {
         if r.is_match(name) {
@@ -206,7 +207,7 @@ fn validate_attr_name(name: &String) -> Result<()> {
 }
 
 pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {
-    if let Some(_) = value.as_null() {
+    if value.as_null().is_some() {
         if *is_required {
             return Err(Error::new(ErrorKind::InvalidData, "it is required, got: null"));
         } else {

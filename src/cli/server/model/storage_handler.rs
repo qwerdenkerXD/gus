@@ -62,7 +62,7 @@ fn get_storage_configs() -> Result<StorageConfig> {
     };
     if let Some(start) = cli::get_valid_start_args() {
         if let Some(path_buf) = start.storage_definitions {
-            let data: Result<String> = read_to_string(&path_buf.as_path());
+            let data: Result<String> = read_to_string(path_buf.as_path());
             if data.is_err() {
                 return Err(Error::new(ErrorKind::PermissionDenied, "Unable to read storage definition file, make sure it's utf-8 only"))
             }

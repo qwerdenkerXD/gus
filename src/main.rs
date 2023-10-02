@@ -2,13 +2,9 @@ mod cli;
 
 #[actix_web::main]
 async fn main() {
-    match cli::run() {
-        Some(server) => {
-            if let Err(err) = server.await {
-                eprintln!("{}", err);
-                return;
-            }
-        },
-        None => return,
+    if let Some(server) = cli::run() {
+        if let Err(err) = server.await {
+            eprintln!("{}", err);
+        }
     }
 }

@@ -25,7 +25,7 @@ use serde_json::{
     from_str
 };
 
-const DEFAULT_STORAGE_FILE: &'static str = "./data.json.gus";
+const DEFAULT_STORAGE_FILE: &str = "./data.json.gus";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct JsonStorageConfig {
@@ -63,11 +63,12 @@ impl JsonStorageHandler {
         if db.get(&self.model_name).is_none() {
             db.insert(self.model_name.clone(), HashMap::new());
         }
-        return Ok(db.clone())
+
+        Ok(db.clone())
     }
     fn save(&self, db: &mut HashMap<ModelName, HashMap<String, Record>>) -> Result<()> {
         let storage_file: &PathBuf = &self.config.storage_file.clone().unwrap_or(PathBuf::from(DEFAULT_STORAGE_FILE));
-        if write(storage_file, &to_string(db).unwrap()).is_err() {
+        if write(storage_file, to_string(db).unwrap()).is_err() {
             return Err(Error::new(ErrorKind::PermissionDenied, format!("Unable to write data to storage file {}", storage_file.display()).as_str()));
         }
 
@@ -86,7 +87,8 @@ impl StorageHandler for JsonStorageHandler {
         data.insert(id_string, record.clone());
         db.insert(self.model_name.clone(), data);
         self.save(db)?;
-        return Ok(record.clone());
+
+        Ok(record.clone())
     }
     fn read_one(&self, id: &TrueType) -> Result<Record> {
         let id_string: &String = &to_string(id).unwrap();
@@ -114,7 +116,8 @@ impl StorageHandler for JsonStorageHandler {
         data.insert(id_string, new_record.clone());
         db.insert(self.model_name.clone(), data);
         self.save(db)?;
-        return Ok(new_record);
+
+        Ok(new_record)
     }
     fn delete_one(&self, id: &TrueType) -> Result<Record> {
         let id_string: String = to_string(id).unwrap();
@@ -126,7 +129,8 @@ impl StorageHandler for JsonStorageHandler {
         }
         db.insert(self.model_name.clone(), data);
         self.save(db)?;
-        return Ok(record.unwrap());
+
+        Ok(record.unwrap())
     }
 }
 
@@ -155,15 +159,6 @@ mod tests {
         }
     }
 
-    // #[test]
-    /*
-        The tests are executed inside one test method because of the access on the same storage file.
-        Since tests will be run in parallel threads, they would influence each other.
-    */
-    // fn test_json_storage_handler() {
-        // test_read_db();
-        // test_create_one();
-    // }
     #[test]
     fn test_read_db() {
         const TEST_STORAGE_FILE: &'static str = "test_read_db.json";

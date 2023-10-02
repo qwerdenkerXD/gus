@@ -37,7 +37,7 @@ pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model.storage_type, name)?;
         let record: Record = parse_record(json, &model)?;
-        return storage_handler.create_one(&record.get(&model.primary_key).unwrap(), &record);
+        return storage_handler.create_one(record.get(&model.primary_key).unwrap(), &record);
     };
     todo!("creating records is currently only possible when the server is running")
 }
@@ -59,13 +59,13 @@ pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Rec
         let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model.storage_type, name)?;
         let mut required: Vec<AttrName> = model.required;
-        model.required = vec!();
 
         // parse record to get its attributes
+        model.required = vec!();
         let record: Record = parse_record(json, &model)?;
 
         // update models' required attributes to the necessary
-        required.retain(|a| record.get(&a).is_some());
+        required.retain(|a| record.get(a).is_some());
         model.required = required.clone();
 
         // parse the record again, this time with correct requirement check
@@ -99,7 +99,7 @@ fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
         },
         AttrType::Primitive(other) => {
             if let Ok(val) = parse::<Value>(id.as_str()) {
-                Ok(TrueType::Primitive(to_true_prim_type(&val, &other, &true)?))
+                Ok(TrueType::Primitive(to_true_prim_type(&val, other, &true)?))
             } else {
                 Err(Error::new(ErrorKind::InvalidData, "Invalid value for primary key"))
             }
@@ -128,7 +128,7 @@ fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
     let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
     models.retain(|m| &m.model_name == model_name);
-    if models.len() == 0 {
+    if models.is_empty() {
         return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
     }
     Ok(models.remove(0))
@@ -154,7 +154,7 @@ pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDef
 pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     // read directory structure
     let model_paths: Result<ReadDir> = read_dir(model_path);
-    if let Err(_) = model_paths {
+    if model_paths.is_err() {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
 
@@ -163,18 +163,16 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
     let mut duplicates: Vec<ModelName> = vec!();  // stores all names of duplicate valid models
 
     // parse the models
-    for file in model_paths.unwrap() {
+    for path in model_paths.unwrap().flatten() {
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
-        if let Ok(path) = file {
-            if let Ok(data) = read_to_string(&path.path()) {
-                if let Ok(model) = ModelDefinition::try_from(&data) {
-                    if model_names.contains(&model.model_name) && !duplicates.contains(&model.model_name) {
-                        duplicates.push(model.model_name.clone());
-                    }
-                    model_names.push(model.model_name.clone());
-                    models.push(model);
+        if let Ok(data) = read_to_string(&path.path()) {
+            if let Ok(model) = ModelDefinition::try_from(&data) {
+                if model_names.contains(&model.model_name) && !duplicates.contains(&model.model_name) {
+                    duplicates.push(model.model_name.clone());
                 }
+                model_names.push(model.model_name.clone());
+                models.push(model);
             }
         }
     }
@@ -184,7 +182,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         models.retain(|m| &m.model_name != dup);
     }
 
-    if models.len() == 0 {
+    if models.is_empty() {
         return Err(Error::new(NotFound, "No valid models defined"));
     }
     Ok(models)
@@ -232,7 +230,7 @@ fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
         if let Some(ty) = model.attributes.get(&key) {
             match ty {
                 AttrType::Primitive(prim_type) => {
-                    match to_true_prim_type(&value, &prim_type, &is_required) {
+                    match to_true_prim_type(&value, prim_type, &is_required) {
                         Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
                         Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key.0, err)))
                     };

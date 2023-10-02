@@ -59,7 +59,7 @@ fn not_found() -> HttpResponse {
 }
 
 fn bad_request(message: String) -> HttpResponse {
-    return HttpResponse::BadRequest().json(JsonError {
+    HttpResponse::BadRequest().json(JsonError {
         error: message
     })
 }
@@ -82,7 +82,7 @@ struct JsonData {
 async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
 
-    let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+    let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
     if segments.len() == 1 {
         match subroutes.as_str() {
             "" => return send_view_file(&"index.html".to_string()),
@@ -107,7 +107,7 @@ fn send_view_file(subroutes: &String) -> HttpResponse {
 }
 
 fn rest_api_get(uri: &String) -> HttpResponse {
-    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
@@ -127,7 +127,7 @@ fn rest_api_get(uri: &String) -> HttpResponse {
 #[post("/{uri:.*}")]
 async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
-    let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+    let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
         "api" => rest_api_post(subroutes, &body),
@@ -140,7 +140,7 @@ fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
-    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 1 {
         return bad_endpoint();
@@ -158,7 +158,7 @@ fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
 #[put("/{uri:.*}")]
 async fn uri_handler_put(body: BodyBytes, uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
-    let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+    let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
         "api" => rest_api_put(subroutes, &body),
@@ -171,7 +171,7 @@ fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
-    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
@@ -191,7 +191,7 @@ fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
 #[delete("/{uri:.*}")]
 async fn uri_handler_delete(uri: UriParam<String>) -> HttpResponse {
     let subroutes: &String = &uri.into_inner();
-    let segments: &mut Vec<&str> = &mut subroutes.split("/").collect();
+    let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
         "api" => rest_api_delete(subroutes),
@@ -200,7 +200,7 @@ async fn uri_handler_delete(uri: UriParam<String>) -> HttpResponse {
 }
 
 fn rest_api_delete(uri: &String) -> HttpResponse {
-    let segments: &mut Vec<&str> = &mut uri.split("/").collect();
+    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();

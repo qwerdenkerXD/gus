@@ -119,7 +119,7 @@ pub fn create_model(args: CreateModel) {
         }
 
         // don't break up with defining attributes until there are some that are key candidates (so if not Array)
-        if primary_key_opts.len() > 0 {
+        if !primary_key_opts.is_empty() {
             println!();
             if !Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt("Do you want to add another attribute?")
@@ -151,12 +151,14 @@ pub fn create_model(args: CreateModel) {
 
     // set up the theme for the multi select because it may happen that the used terminal emulator
     // doesn't show the icon for selected items with the default setting -> ASCII is safe
-    let mut multi_select_theme = ColorfulTheme::default();
-    multi_select_theme.checked_item_prefix = Style::new().green().apply_to(" [X]".to_string());
-    multi_select_theme.unchecked_item_prefix = Style::new().red().apply_to(" [ ]".to_string());
+    let multi_select_theme = ColorfulTheme{
+        checked_item_prefix: Style::new().green().apply_to(" [X]".to_string()),
+        unchecked_item_prefix: Style::new().red().apply_to(" [ ]".to_string()),
+        ..Default::default()
+    };
 
     // get required attributes
-    if required_opts.len() > 0 {
+    if !required_opts.is_empty() {
         let required_selection = MultiSelect::with_theme(&multi_select_theme)
             .with_prompt("Set required attributes:")
             .items(&required_opts)
@@ -171,10 +173,10 @@ pub fn create_model(args: CreateModel) {
     // create model definition
     let created_model = ModelDefinition {
         model_name: ModelName(AttrName::try_from(&model_name).unwrap()),
-        storage_type: storage_type,
+        storage_type,
         attributes: attributes.clone(),
         primary_key: AttrName::try_from(&primary_key).unwrap(),
-        required: required,
+        required,
         constraints: None
     };
 
@@ -194,10 +196,9 @@ pub fn create_model(args: CreateModel) {
     let model_file_path: &Path = modelspath.as_path();
 
     // try to write the definition to a file, else write it to stdout
-    if let Err(_) = write(model_file_path, &to_string_pretty(&created_model).unwrap()) {
+    if write(model_file_path, to_string_pretty(&created_model).unwrap()).is_err() {
         println!("{}", &to_string_pretty(&created_model).unwrap());
         eprintln!("unable to write file");
-        return;
     }
 }
 

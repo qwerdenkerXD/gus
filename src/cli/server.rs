@@ -250,7 +250,7 @@ mod tests {
     #[actix_web::test]
     // not completed
     async fn test_rest_api_post() {
-        const TEST_STORAGE_FILE: &'static str = "server.data.test.json";
+        const TEST_STORAGE_FILE: &str = "server.data.test.json";
 
         pre_test(TEST_STORAGE_FILE);
 

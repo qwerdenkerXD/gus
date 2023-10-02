@@ -311,7 +311,7 @@ mod tests {
             ),
             constraints: None
         };
-        let parsed_record: Record = parse_record(&valid_input.to_string(), &movie_model).unwrap();
+        let parsed_record: Record = parse_record(valid_input, &movie_model).unwrap();
         
         assert_eq!(&parsed_record, &expected_record);
 
@@ -326,9 +326,10 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing String-Value to Integer");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for parsing String-Value to Integer"
+        );
 
         // test String instead of Boolean 
         let invalid_input = r#"
@@ -340,9 +341,10 @@ mod tests {
                 "recommended": "true"
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing String-Value to Boolean");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for parsing String-Value to Boolean"
+        );
 
         // test Integer instead of String 
         let invalid_input = r#"
@@ -354,9 +356,10 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing Integer-Value to String");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for parsing Integer-Value to String"
+        );
 
         // test Array(Integer) instead of Array(String)
         let invalid_input = r#"
@@ -368,9 +371,10 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for parsing Array(Integer)-Value to Array(String)");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for parsing Array(Integer)-Value to Array(String)"
+        );
 
         // test missing attribute
         let invalid_input = r#"
@@ -381,9 +385,10 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for missing required attributes");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for missing required attributes"
+        );
 
         // test null value
         let invalid_input = r#"
@@ -395,12 +400,14 @@ mod tests {
                 "recommended": "true"
             }
         "#;
-        if let Ok(_) = parse_record(invalid_input, &movie_model) {
-            assert!(false, "Expected Error for null-valued required attributes");
-        }
-        if let Ok(_) = parse_record("invalid json", &movie_model) {
-            assert!(false, "Expected Error for parsing invalid JSON input");
-        }
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for null-valued required attributes"
+        );
+        assert!(
+            parse_record("invalid json", &movie_model).is_err(),
+            "Expected Error for parsing invalid JSON input"
+        );
     }
 
     #[test]
@@ -428,18 +435,21 @@ mod tests {
         assert_eq!(&parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie_clone".to_string()))) {
+        assert!(
+            parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie_clone".to_string()))).is_err(),
             // test a not existing directory
-            assert!(false, "Expected error for parsing a valid model with duplicate model name");
-        }
-        if let Ok(_) = parse_model(Path::new("./testing/server/not_existing_dir"), &ModelName(AttrName("movie".to_string()))) {
+            "Expected error for parsing a valid model with duplicate model name"
+        );
+        assert!(
+            parse_model(Path::new("./testing/server/not_existing_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
             // test a not existing directory
-            assert!(false, "Expected error for not existing models' path");
-        }
-        if let Ok(_) = parse_model(Path::new("./testing/server/dummy_dir"), &ModelName(AttrName("movie".to_string()))) {
+            "Expected error for not existing models' path"
+        );
+        assert!(
+            parse_model(Path::new("./testing/server/dummy_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
             // test a directory without any valid model definitions
-            assert!(false, "Expected error for no matching model definitions");
-        }
+            "Expected error for no matching model definitions"
+        );
     }
 
     #[test]
@@ -467,13 +477,15 @@ mod tests {
         assert_eq!(&parse_models(Path::new("./testing/server")).unwrap(), &expected_result);
 
         // test errors
-        if let Ok(_) = parse_models(Path::new("./testing/server/not_existing_dir")) {
+        assert!(
+            parse_models(Path::new("./testing/server/not_existing_dir")).is_err(),
             // test a not existing directory
-            assert!(false, "Expected error for not existing models' path");
-        }
-        if let Ok(_) = parse_models(Path::new("./testing/server/dummy_dir")) {
+            "Expected error for not existing models' path"
+        );
+        assert!(
+            parse_models(Path::new("./testing/server/dummy_dir")).is_err(),
             // test a directory without any valid model definitions
-            assert!(false, "Expected error for no existing valid model definitions");
-        }
+            "Expected error for no existing valid model definitions"
+        );
     }
 }

@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_read_db() {
-        const TEST_STORAGE_FILE: &'static str = "test_read_db.json";
+        const TEST_STORAGE_FILE: &str = "test_read_db.json";
 
         pre_test(TEST_STORAGE_FILE);
         let handler = JsonStorageHandler {
@@ -215,7 +215,7 @@ mod tests {
     // also test all primary key types
     #[test]
     fn test_create_one() {
-        const TEST_STORAGE_FILE: &'static str = "test_create_one.json";
+        const TEST_STORAGE_FILE: &str = "test_create_one.json";
 
         pre_test(TEST_STORAGE_FILE);
         let handler = JsonStorageHandler {

@@ -67,7 +67,7 @@ pub fn get_valid_start_args() -> Option<StartServer> {
 
     #[cfg(test)]
     {
-        return Some(StartServer::try_parse_from(vec!["start", "-m", "./testing/server", "-s", "./testing/server/storages.json"]).unwrap());
+        Some(StartServer::try_parse_from(vec!["start", "-m", "./testing/server", "-s", "./testing/server/storages.json"]).unwrap())
     }
 }
 
@@ -101,52 +101,62 @@ mod tests {
 
     #[test]
     fn test_cli_parse() {
-        if let Ok(_) = Cli::try_parse_from(vec!["gus", "start", "-p", "-1"]) {
-            assert!(false, "Expected Error when passing negatives to -p");
-        }
-        if let Ok(_) = Cli::try_parse_from(vec!["gus", "start", "-p", "65536"]) {
-            assert!(false, "Expected Error when passing a port greater than maximum of 65535 to -p");
-        }
+        assert!(
+            Cli::try_parse_from(vec!["gus", "start", "-p", "-1"]).is_err(),
+            "Expected Error when passing negatives to -p"
+        );
+        assert!(
+            Cli::try_parse_from(vec!["gus", "start", "-p", "65536"]).is_err(),
+            "Expected Error when passing a port greater than maximum of 65535 to -p"
+        );
         let mut args: Cli = Cli::try_parse_from(vec!["gus", "start"]).unwrap();
-        if let Err(_) = validate_args(args) {
-            assert!(false, "Unexpected Error when parsing start args with default values");
-        }
+        assert!(
+            validate_args(args).is_ok(),
+            "Unexpected Error when parsing start args with default values"
+        );
         args = Cli::try_parse_from(vec!["gus", "create-model"]).unwrap();
-        if let Err(_) = validate_args(args) {
-            assert!(false, "Unexpected Error when parsing create-model args with default values");
-        }
+        assert!(
+            validate_args(args).is_ok(),
+            "Unexpected Error when parsing create-model args with default values"
+        );
     }
 
     #[test]
     fn test_validate_args() {
         // start
         let mut args: Cli = Cli::try_parse_from(vec!["gus", "start", "-m", "./not_existing_dir/"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing a not existing directory to 'start -m'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing a not existing directory to 'start -m'"
+        );
         args = Cli::try_parse_from(vec!["gus", "start", "-m", "./Cargo.toml"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing a file to 'start -m'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing a file to 'start -m'"
+        );
 
         let mut args: Cli = Cli::try_parse_from(vec!["gus", "start", "-s", "./src/"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing an existing directory to 'start -s'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing an existing directory to 'start -s'"
+        );
         args = Cli::try_parse_from(vec!["gus", "start", "-s", "./Cargo.toml.not.existing"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing a not existing file to 'start -s'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing a not existing file to 'start -s'"
+        );
 
 
         // create-model
         args = Cli::try_parse_from(vec!["gus", "create-model", "-m", "./not_existing_dir/"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing a not existing directory to 'create-model -m'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing a not existing directory to 'create-model -m'"
+        );
         args = Cli::try_parse_from(vec!["gus", "create-model", "-m", "./Cargo.toml"]).unwrap();
-        if let Ok(_) = validate_args(args) {
-            assert!(false, "Expected Error when passing a file to 'create-model -m'");
-        }
+        assert!(
+            validate_args(args).is_err(),
+            "Expected Error when passing a file to 'create-model -m'"
+        );
     }
 }

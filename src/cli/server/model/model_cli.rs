@@ -97,11 +97,11 @@ pub fn create_model(args: CreateModel) {
                 .unwrap();
             let selected_type = format!("{:?}", primitives[arr_type_selection]);
             let selected_arr_type: AttrType = AttrType::Array([from_str(&selected_type).unwrap()]);
-            attributes.insert(AttrName::try_from(&attr_name).unwrap(), selected_arr_type);
+            attributes.insert(AttrName::try_from(attr_name.as_str()).unwrap(), selected_arr_type);
         } else {
             let selected_type = format!("{:?}", types[type_selection]);
             let selected_attr_type: AttrType = from_str(&selected_type).unwrap();
-            attributes.insert(AttrName::try_from(&attr_name).unwrap(), selected_attr_type);
+            attributes.insert(AttrName::try_from(attr_name.as_str()).unwrap(), selected_attr_type);
 
             // don't add attribute names multiple times if they are defined multiple times
             if !primary_key_opts.contains(&attr_name) {
@@ -142,7 +142,7 @@ pub fn create_model(args: CreateModel) {
     let primary_key = primary_key_opts[id_selection].to_string();
     
     // automatically set primary key as required
-    required.push(AttrName::try_from(&primary_key).unwrap());
+    required.push(AttrName::try_from(primary_key.as_str()).unwrap());
 
     // don't allow the user to unselect the key as not required
     required_opts.retain(|s| s != &primary_key);
@@ -166,16 +166,16 @@ pub fn create_model(args: CreateModel) {
             .unwrap();
 
         for attr_index in required_selection {
-            required.push(AttrName::try_from(&required_opts[attr_index].to_string()).unwrap());
+            required.push(AttrName::try_from(required_opts[attr_index].as_str()).unwrap());
         }
     }
 
     // create model definition
     let created_model = ModelDefinition {
-        model_name: ModelName(AttrName::try_from(&model_name).unwrap()),
+        model_name: ModelName(AttrName::try_from(model_name.as_str()).unwrap()),
         storage_type,
         attributes: attributes.clone(),
-        primary_key: AttrName::try_from(&primary_key).unwrap(),
+        primary_key: AttrName::try_from(primary_key.as_str()).unwrap(),
         required,
         constraints: None
     };
@@ -208,7 +208,7 @@ impl Validator<String> for AttrValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
-        match AttrName::try_from(input) {
+        match AttrName::try_from(input.as_str()) {
             Ok(_) => Ok(()),
             Err(err) => Err(format!("{}", err))
         }

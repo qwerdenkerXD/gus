@@ -9,7 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/view.rs"));
         The content of the declared file
         or an Error if there isn't such file
 */
-pub fn get_view_file(uri: &String) -> Option<(ViewFile, ContentHeader)> {
+pub fn get_view_file(uri: &str) -> Option<(ViewFile, ContentHeader)> {
     if uri.ends_with('/') {
         return None;
     }

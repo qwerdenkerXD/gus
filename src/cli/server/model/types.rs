@@ -92,10 +92,10 @@ pub struct ModelDefinition {
     pub constraints: Option<HashMap<AttrName, Constraints>>
 }
 
-impl TryFrom<&String> for ModelDefinition {
+impl TryFrom<&str> for ModelDefinition {
     type Error = Error;
 
-    fn try_from(json: &String) -> core::result::Result<Self, Self::Error> {
+    fn try_from(json: &str) -> core::result::Result<Self, Self::Error> {
         if let Ok(model) = parse::<ModelDefinition>(json) {
             validate_model_definition(&model)?;
             Ok(model)
@@ -152,12 +152,12 @@ pub struct ModelName(pub AttrName);
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct AttrName(pub String);
 
-impl TryFrom<&String> for AttrName {
+impl TryFrom<&str> for AttrName {
     type Error = Error;
 
-    fn try_from(s: &String) -> core::result::Result<Self, Self::Error> {
+    fn try_from(s: &str) -> core::result::Result<Self, Self::Error> {
         validate_attr_name(s)?;
-        Ok(AttrName(s.clone()))
+        Ok(AttrName(s.to_string()))
     }
 }
 
@@ -174,7 +174,7 @@ impl<'de> de::Visitor<'de> for AttrNameVisitor {
     where
         E: de::Error,
     {
-        match AttrName::try_from(&value.to_string()) {
+        match AttrName::try_from(value) {
             Ok(name) => Ok(name),
             Err(err) => Err(de::Error::custom(format!("{}", err))),
         }
@@ -190,7 +190,7 @@ impl<'de> de::Deserialize<'de> for AttrName {
     }
 }
 
-fn validate_attr_name(name: &String) -> Result<()> {
+fn validate_attr_name(name: &str) -> Result<()> {
     let regex: Vec<Regex> = vec!(
         Regex::new(r#"^[A-Z][a-zA-Z]*$"#).unwrap(),  // PascalCase
         Regex::new(r#"^[a-z][a-zA-Z]*$"#).unwrap(),  // camelCase

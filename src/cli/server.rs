@@ -80,13 +80,13 @@ struct JsonData {
 
 #[get("/{uri:.*}")]
 async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
-    let subroutes: &String = &uri.into_inner();
+    let subroutes: &str = &uri.into_inner();
 
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
     if segments.len() == 1 {
-        match subroutes.as_str() {
-            "" => return send_view_file(&"index.html".to_string()),
-            "robots.txt" => return send_view_file(&"robots.txt".to_string()),
+        match subroutes {
+            "" => return send_view_file("index.html"),
+            "robots.txt" => return send_view_file("robots.txt"),
             _ => return not_found()
         }
     }
@@ -98,7 +98,7 @@ async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
     }
 }
 
-fn send_view_file(subroutes: &String) -> HttpResponse {
+fn send_view_file(subroutes: &str) -> HttpResponse {
     let view_file = get_view_file(subroutes);
     match view_file {
         Some((file, content_type)) => HttpResponse::Ok().insert_header(("content-type", content_type.as_str())).body(file),
@@ -106,19 +106,19 @@ fn send_view_file(subroutes: &String) -> HttpResponse {
     }
 }
 
-fn rest_api_get(uri: &String) -> HttpResponse {
+fn rest_api_get(uri: &str) -> HttpResponse {
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
     }
-    let model_name: &String = &segments.remove(0).to_string();
-    let id: &String = &segments.remove(0).to_string();
+    let model_name: &str = segments.remove(0);
+    let id: &str = segments.remove(0);
     match read_one(model_name, id) {
         Ok(record) => HttpResponse::Ok().json(JsonData {
             data: record
         }),
-        Err(err) => bad_request(format!("{}", err))
+        Err(err) => bad_request(err.to_string())
     }
 }
 
@@ -126,7 +126,7 @@ fn rest_api_get(uri: &String) -> HttpResponse {
 
 #[post("/{uri:.*}")]
 async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpResponse {
-    let subroutes: &String = &uri.into_inner();
+    let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
@@ -135,7 +135,7 @@ async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpRespons
     }
 }
 
-fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
+fn rest_api_post(uri: &str, body: &BodyBytes) -> HttpResponse {
     let body_str: Result<&str, Utf8Error> = from_utf8(body);
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
@@ -145,11 +145,11 @@ fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
     if segments.len() != 1 {
         return bad_endpoint();
     }
-    match create_one(&segments.remove(0).to_string(), &body_str.unwrap().to_string()) {
+    match create_one(segments.remove(0), body_str.unwrap()) {
         Ok(record) => HttpResponse::Ok().json(JsonData {
             data: record
         }),
-        Err(err) => bad_request(format!("{}", err))
+        Err(err) => bad_request(err.to_string())
     }
 }
 
@@ -157,7 +157,7 @@ fn rest_api_post(uri: &String, body: &BodyBytes) -> HttpResponse {
 
 #[put("/{uri:.*}")]
 async fn uri_handler_put(body: BodyBytes, uri: UriParam<String>) -> HttpResponse {
-    let subroutes: &String = &uri.into_inner();
+    let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
@@ -166,7 +166,7 @@ async fn uri_handler_put(body: BodyBytes, uri: UriParam<String>) -> HttpResponse
     }
 }
 
-fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
+fn rest_api_put(uri: &str, body: &BodyBytes) -> HttpResponse {
     let body_str: Result<&str, Utf8Error> = from_utf8(body);
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
@@ -176,13 +176,13 @@ fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
     if segments.len() != 2 {
         return bad_endpoint();
     }
-    let model_name: &String = &segments.remove(0).to_string();
-    let id: &String = &segments.remove(0).to_string();
-    match update_one(model_name, id, &body_str.unwrap().to_string()) {
+    let model_name: &str = segments.remove(0);
+    let id: &str = segments.remove(0);
+    match update_one(model_name, id, body_str.unwrap()) {
         Ok(record) => HttpResponse::Ok().json(JsonData {
             data: record
         }),
-        Err(err) => bad_request(format!("{}", err))
+        Err(err) => bad_request(err.to_string())
     }
 }
 
@@ -190,7 +190,7 @@ fn rest_api_put(uri: &String, body: &BodyBytes) -> HttpResponse {
 
 #[delete("/{uri:.*}")]
 async fn uri_handler_delete(uri: UriParam<String>) -> HttpResponse {
-    let subroutes: &String = &uri.into_inner();
+    let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
     match segments.remove(0) {
@@ -199,19 +199,19 @@ async fn uri_handler_delete(uri: UriParam<String>) -> HttpResponse {
     }
 }
 
-fn rest_api_delete(uri: &String) -> HttpResponse {
+fn rest_api_delete(uri: &str) -> HttpResponse {
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
     segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
     }
-    let model_name: &String = &segments.remove(0).to_string();
-    let id: &String = &segments.remove(0).to_string();
+    let model_name: &str = segments.remove(0);
+    let id: &str = segments.remove(0);
     match delete_one(model_name, id) {
         Ok(record) => HttpResponse::Ok().json(JsonData {
             data: record
         }),
-        Err(err) => bad_request(format!("{}", err))
+        Err(err) => bad_request(err.to_string())
     }
 }
 

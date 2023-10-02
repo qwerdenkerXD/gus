@@ -31,7 +31,7 @@ use std::fs::{
     read_dir
 };
 
-pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
+pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
@@ -42,18 +42,18 @@ pub fn create_one(model_name: &String, json: &String) -> Result<Record> {
     todo!("creating records is currently only possible when the server is running")
 }
 
-pub fn read_one(model_name: &String, id: &String) -> Result<Record> {
+pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model.storage_type, name)?;
-        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        let true_id: &TrueType = &parse_id_str(id, &model)?;
         return storage_handler.read_one(true_id);
     };
     todo!("reading records is currently only possible when the server is running")
 }
 
-pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Record> {
+pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
@@ -70,25 +70,25 @@ pub fn update_one(model_name: &String, id: &String, json: &String) -> Result<Rec
 
         // parse the record again, this time with correct requirement check
         let mut valid_record: Record = parse_record(json, &model)?;
-        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        let true_id: &TrueType = &parse_id_str(id, &model)?;
         valid_record.insert(model.primary_key.clone(), true_id.clone());
         return storage_handler.update_one(true_id, &record);
     };
     todo!("updating records is currently only possible when the server is running")
 }
 
-pub fn delete_one(model_name: &String, id: &String) -> Result<Record> {
+pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model.storage_type, name)?;
-        let true_id: &TrueType = &parse_id_string(id, &model)?;
+        let true_id: &TrueType = &parse_id_str(id, &model)?;
         return storage_handler.delete_one(true_id);
     };
     todo!("reading records is currently only possible when the server is running")
 }
 
-fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
+fn parse_id_str(id: &str, model: &ModelDefinition) -> Result<TrueType> {
     let key: &AttrName = &model.primary_key;
     let key_type: &AttrType = model.attributes.get(key).unwrap();
 
@@ -98,7 +98,7 @@ fn parse_id_string(id: &String, model: &ModelDefinition) -> Result<TrueType> {
             Ok(TrueType::Primitive(to_true_prim_type(&value, &PrimitiveType::String, &true)?))
         },
         AttrType::Primitive(other) => {
-            if let Ok(val) = parse::<Value>(id.as_str()) {
+            if let Ok(val) = parse::<Value>(id) {
                 Ok(TrueType::Primitive(to_true_prim_type(&val, other, &true)?))
             } else {
                 Err(Error::new(ErrorKind::InvalidData, "Invalid value for primary key"))
@@ -167,7 +167,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         // going to parse the file
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(data) = read_to_string(&path.path()) {
-            if let Ok(model) = ModelDefinition::try_from(&data) {
+            if let Ok(model) = ModelDefinition::try_from(data.as_str()) {
                 if model_names.contains(&model.model_name) && !duplicates.contains(&model.model_name) {
                     duplicates.push(model.model_name.clone());
                 }
@@ -207,7 +207,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         a valid Record for the definition or an Error
         if the given String is not a valid JSON representation of such Record
 */
-fn parse_record(json: &String, model: &ModelDefinition) -> Result<Record> {
+fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     let parsed_json = parse::<HashMap<AttrName, Value>>(json);
     
     // check json
@@ -326,7 +326,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for parsing String-Value to Integer");
         }
 
@@ -340,7 +340,7 @@ mod tests {
                 "recommended": "true"
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for parsing String-Value to Boolean");
         }
 
@@ -354,7 +354,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for parsing Integer-Value to String");
         }
 
@@ -368,7 +368,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for parsing Array(Integer)-Value to Array(String)");
         }
 
@@ -381,7 +381,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for missing required attributes");
         }
 
@@ -395,10 +395,10 @@ mod tests {
                 "recommended": "true"
             }
         "#;
-        if let Ok(_) = parse_record(&invalid_input.to_string(), &movie_model) {
+        if let Ok(_) = parse_record(invalid_input, &movie_model) {
             assert!(false, "Expected Error for null-valued required attributes");
         }
-        if let Ok(_) = parse_record(&"invalid json".to_string(), &movie_model) {
+        if let Ok(_) = parse_record("invalid json", &movie_model) {
             assert!(false, "Expected Error for parsing invalid JSON input");
         }
     }

@@ -147,7 +147,7 @@ fn rest_api_post(uri: &str, body: &BodyBytes) -> HttpResponse {
         return bad_endpoint();
     }
     match create_one(segments.remove(0), body_str.unwrap()) {
-        Ok(record) => HttpResponse::Ok().json(JsonData {
+        Ok(record) => HttpResponse::Created().json(JsonData {
             data: record
         }),
         Err(err) => bad_request(err.to_string())

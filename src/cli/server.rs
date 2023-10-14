@@ -4,6 +4,7 @@ mod view;
 
 // used types
 use std::str::Utf8Error;
+use std::net::Ipv4Addr;
 use model::Record;
 use std::io::Error;
 use actix_web::{
@@ -40,15 +41,15 @@ use actix_web::{
 // used functions
 use view::get_view_file;
 
-pub async fn start(port: u16) -> Result<(), Error> {
+pub async fn start(port: u16, ip: Ipv4Addr) -> Result<(), Error> {
     let server = HttpServer::new(|| 
         App::new().service(uri_handler_post)
                   .service(uri_handler_get)
                   .service(uri_handler_put)
                   .service(uri_handler_delete)
                   )
-                  .bind(format!("127.0.0.1:{port}"))?;
-    println!("Listening on port {port}");
+                  .bind(format!("{ip}:{port}"))?;
+    println!("Listening on {ip}:{port}");
     server.run().await
 }
 

@@ -1,5 +1,6 @@
 // used types
 use std::path::PathBuf;
+use std::net::Ipv4Addr;
 pub use clap::{
     Error as ClapError,
     error::ErrorKind::ValueValidation,
@@ -32,6 +33,8 @@ pub enum Commands {
 #[derive(Parser, Debug)]
 #[clap(name = "start", about = "Starts the webserver")]
 pub struct StartServer {
+    #[clap(short, long, default_value = "127.0.0.1", value_name = "IPv4", help = "The binding adress to start the webserver on")]
+    pub bind: Ipv4Addr,
     #[clap(short, long, default_value = "8080", help = "The port to start the webserver on")]
     pub port: u16,
     #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]

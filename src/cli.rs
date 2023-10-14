@@ -15,7 +15,7 @@ pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>
         return None;
     }
     match cli.unwrap().command {
-        Commands::Start(args) => return Some(server::start(args.port)),
+        Commands::Start(args) => return Some(server::start(args.port, args.bind)),
         Commands::CreateModel(args) => create_model(args)
     }
 

@@ -1,0 +1,9 @@
+
+            {
+                "movie": {
+                    "\"read\"": {"id": "read"},
+                    "\"put\"": {"id": "put"},
+                    "\"delete\"": {"id": "delete"}
+                }
+            }
+            

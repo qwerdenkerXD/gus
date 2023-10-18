@@ -259,39 +259,41 @@ mod tests {
     use actix_web::dev::ServiceResponse;
     use actix_web::test::TestRequest;
     use actix_web::body::MessageBody;
-    use std::path::PathBuf;
 
-    use std::fs::remove_file;
     use serde_json::from_str;
+    use std::fs::write;
     use actix_web::test::{
         init_service,
         call_service
     };
 
-    fn pre_test(file_name: &str) {
-        if PathBuf::from(file_name).as_path().is_file() {
-            assert!(remove_file(file_name).is_ok(), "Storage file {} already existing, unable to remove", file_name);
-        }
+    fn pre_test() {
+        let file = "./testing/server/server.data.test.json";
+        assert!(write(file, r#"
+            {
+                "movie": {
+                    "\"read\"": {"id": "read"},
+                    "\"put\"": {"id": "put"},
+                    "\"delete\"": {"id": "delete"}
+                }
+            }
+            "#).is_ok(), "Unable to write storage file for tests");
     }
 
-    fn post_test(file_name: &str) {
-        if PathBuf::from(file_name).as_path().is_file() {
-            assert!(remove_file(file_name).is_ok(), "Unable to remove storage file {} after test", file_name);
-        }
+    fn post_test() {
+        pre_test();
     }
 
     #[actix_web::test]
-    // not completed
     async fn test_rest_api_post() {
-        const TEST_STORAGE_FILE: &str = "server.data.test.json";
-
-        pre_test(TEST_STORAGE_FILE);
+        pre_test();
 
         let app = init_service(App::new().service(uri_handler_post)).await;
 
+        // test valid request
         let valid_input = r#"
             {
-                "id": 1,
+                "id": "post",
                 "name": "Natural Born Killers",
                 "year": 1994,
                 "actors": ["Woody Harrelson", "Juliette Lewis"],
@@ -309,6 +311,22 @@ mod tests {
         let res_data: JsonData = from_str(from_utf8(&res_body).unwrap()).unwrap();
         assert_eq!(res_data.data, expected, "Sent data doesn't match the response");
 
-        post_test(TEST_STORAGE_FILE);
+        // test invalid endpoints
+        for endpoint in ["/", "/api", "/api/", "/api/rest", "/api/rest/", "/api/rest/movie/1"] {
+            let req = TestRequest::post().uri(endpoint)
+                                         .set_payload("")
+                                         .to_request();
+            let res: ServiceResponse = call_service(&app, req).await;
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+        }
+
+        // test invalid body
+        let req = TestRequest::post().uri("/api/rest/movie")
+                                     .set_payload("")
+                                     .to_request();
+        let res: ServiceResponse = call_service(&app, req).await;
+        assert_eq!(res.status(), bad_request("".to_string()).status(), "Mismatching status code when trying to request with invalid body");
+
+        post_test();
     }
 }

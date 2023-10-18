@@ -1,5 +1,5 @@
 {
     "json": {
-        "storage_file": "./server.data.test.json"
+        "storage_file": "./testing/server/server.data.test.json"
     }
 }

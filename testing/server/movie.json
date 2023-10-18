@@ -2,7 +2,7 @@
     "model_name": "movie",
     "storage_type": "json",
     "attributes": {
-        "id": "Integer",
+        "id": "String",
         "name": "String",
         "year": "Integer",
         "actors": ["String"],

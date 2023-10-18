@@ -47,7 +47,7 @@ pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
-        let true_id: &TrueType = &parse_id_str(id, &model)?;
+        let true_id: &TrueType = &parse_uri_id(id, &model)?;
         return storage_handler.read_one(true_id);
     };
     todo!("reading records is currently only possible when the server is running")
@@ -70,7 +70,7 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
 
         // parse the record again, this time with correct requirement check
         let mut valid_record: Record = parse_record(json, &model)?;
-        let true_id: &TrueType = &parse_id_str(id, &model)?;
+        let true_id: &TrueType = &parse_uri_id(id, &model)?;
         valid_record.insert(model.primary_key.clone(), true_id.clone());
         return storage_handler.update_one(&valid_record);
     };
@@ -82,20 +82,28 @@ pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
-        let true_id: &TrueType = &parse_id_str(id, &model)?;
+        let true_id: &TrueType = &parse_uri_id(id, &model)?;
         return storage_handler.delete_one(true_id);
     };
     todo!("reading records is currently only possible when the server is running")
 }
 
-fn parse_id_str(id: &str, model: &ModelDefinition) -> Result<TrueType> {
+
+/*
+    parse_uri_id: 
+        Parses the id fetched as &str from URI in server to the respective key type.
+
+    returns:
+        A TrueType representation of the id
+        or an Error if its type doesn't fit to the definition
+*/
+fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
     let key: &AttrName = &model.primary_key;
     let key_type: &AttrType = model.attributes.get(key).unwrap();
 
     match key_type {
         AttrType::Primitive(PrimitiveType::String) => { 
-            let value: Value = parse(format!("{:?}", id).as_str()).unwrap();
-            Ok(TrueType::Primitive(to_true_prim_type(&value, &PrimitiveType::String, &true)?))
+            Ok(TrueType::Primitive(TruePrimitiveType::String(id.to_string())))
         },
         AttrType::Primitive(other) => {
             if let Ok(val) = parse::<Value>(id) {
@@ -432,21 +440,21 @@ mod tests {
         };
 
         let expected_result: ModelDefinition = movie_model;
-        assert_eq!(&parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
+        assert_eq!(&parse_model(Path::new("./testing/model"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
 
         // test errors
         assert!(
-            parse_model(Path::new("./testing/server"), &ModelName(AttrName("movie_clone".to_string()))).is_err(),
+            parse_model(Path::new("./testing/model"), &ModelName(AttrName("movie_clone".to_string()))).is_err(),
             // test a not existing directory
             "Expected error for parsing a valid model with duplicate model name"
         );
         assert!(
-            parse_model(Path::new("./testing/server/not_existing_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
+            parse_model(Path::new("./testing/model/not_existing_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
             // test a not existing directory
             "Expected error for not existing models' path"
         );
         assert!(
-            parse_model(Path::new("./testing/server/dummy_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
+            parse_model(Path::new("./testing/model/dummy_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
             // test a directory without any valid model definitions
             "Expected error for no matching model definitions"
         );
@@ -474,16 +482,16 @@ mod tests {
         };
 
         let expected_result: Vec<ModelDefinition> = vec![movie_model];
-        assert_eq!(&parse_models(Path::new("./testing/server")).unwrap(), &expected_result);
+        assert_eq!(&parse_models(Path::new("./testing/model")).unwrap(), &expected_result);
 
         // test errors
         assert!(
-            parse_models(Path::new("./testing/server/not_existing_dir")).is_err(),
+            parse_models(Path::new("./testing/model/not_existing_dir")).is_err(),
             // test a not existing directory
             "Expected error for not existing models' path"
         );
         assert!(
-            parse_models(Path::new("./testing/server/dummy_dir")).is_err(),
+            parse_models(Path::new("./testing/model/dummy_dir")).is_err(),
             // test a directory without any valid model definitions
             "Expected error for no existing valid model definitions"
         );

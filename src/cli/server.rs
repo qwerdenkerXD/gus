@@ -91,10 +91,16 @@ async fn uri_handler_get(uri: UriParam<String>) -> HttpResponse {
             _ => return not_found()
         }
     }
-
+    
     match segments.remove(0) {
         "view" => send_view_file(subroutes),
-        "api" => rest_api_get(subroutes),
+        "api" => {
+            match segments.remove(0) {
+                "rest" => rest_api_get(&segments.join("/")),
+                "graphql" => send_view_file("graphql-gui.html"),
+                _ => not_found()
+            }
+        },
         _ => not_found()
     }
 }
@@ -109,7 +115,6 @@ fn send_view_file(subroutes: &str) -> HttpResponse {
 
 fn rest_api_get(uri: &str) -> HttpResponse {
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
-    segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
     }
@@ -130,8 +135,18 @@ async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpRespons
     let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
+    if segments.len() == 1 {
+        return bad_endpoint();
+    }
+
     match segments.remove(0) {
-        "api" => rest_api_post(subroutes, &body),
+        "api" => {
+            match segments.remove(0) {
+                "rest" => rest_api_post(&segments.join("/"), &body),
+                "graphql" => bad_endpoint(),
+                _ => bad_endpoint()
+            }
+        },
         _ => bad_endpoint()
     }
 }
@@ -142,7 +157,6 @@ fn rest_api_post(uri: &str, body: &BodyBytes) -> HttpResponse {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
-    segments.remove(0);  // api
     if segments.len() != 1 {
         return bad_endpoint();
     }
@@ -161,8 +175,18 @@ async fn uri_handler_put(body: BodyBytes, uri: UriParam<String>) -> HttpResponse
     let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
+    if segments.len() == 1 {
+        return bad_endpoint();
+    }
+
     match segments.remove(0) {
-        "api" => rest_api_put(subroutes, &body),
+        "api" => {
+            match segments.remove(0) {
+                "rest" => rest_api_put(&segments.join("/"), &body),
+                "graphql" => bad_endpoint(),
+                _ => bad_endpoint()
+            }
+        },
         _ => bad_endpoint()
     }
 }
@@ -173,7 +197,6 @@ fn rest_api_put(uri: &str, body: &BodyBytes) -> HttpResponse {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
-    segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
     }
@@ -194,15 +217,24 @@ async fn uri_handler_delete(uri: UriParam<String>) -> HttpResponse {
     let subroutes: &str = &uri.into_inner();
     let segments: &mut Vec<&str> = &mut subroutes.split('/').collect();
 
+    if segments.len() == 1 {
+        return bad_endpoint();
+    }
+
     match segments.remove(0) {
-        "api" => rest_api_delete(subroutes),
+        "api" => {
+            match segments.remove(0) {
+                "rest" => rest_api_delete(&segments.join("/")),
+                "graphql" => bad_endpoint(),
+                _ => bad_endpoint()
+            }
+        },
         _ => bad_endpoint()
     }
 }
 
 fn rest_api_delete(uri: &str) -> HttpResponse {
     let segments: &mut Vec<&str> = &mut uri.split('/').collect();
-    segments.remove(0);  // api
     if segments.len() != 2 {
         return bad_endpoint();
     }
@@ -266,7 +298,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        let req = TestRequest::post().uri("/api/movie")
+        let req = TestRequest::post().uri("/api/rest/movie")
                                      .set_payload(valid_input)
                                      .to_request();
         let res: ServiceResponse = call_service(&app, req).await;

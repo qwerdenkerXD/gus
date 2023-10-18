@@ -18,6 +18,6 @@ Of course you can compile them by yourself for your OS.
 <br>Simply run:<br>
 `cargo install --git https://github.com/qwerdenkerXD/gus`
 
-I also host an example webserver with the movie model from testing on [Replit](https://gus.qwerdenkerxd.repl.co/)
+I also host an example webserver with the movie model from testing on [Replit](https://gus.qwerdenkerxd.repl.co/).
 
-Testing Hint: The REST-API has currently no model name inflection implemented, so to test the current CRUD-one functions, access them via e.g. endpoint ``/api/<model-name>/<id>`` or for POST without the ID.
+Testing Hint: The REST-API has currently no model name inflection implemented, so to test the current CRUD-one functions, access them via e.g. endpoint ``/api/rest/<model-name>/<id>`` or for POST without the ID.

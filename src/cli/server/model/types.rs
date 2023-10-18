@@ -89,6 +89,8 @@ pub struct ModelDefinition {
     pub attributes: Attributes,
     pub primary_key: AttrName,
     pub required: Vec<AttrName>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub constraints: Option<HashMap<AttrName, Constraints>>
 }
 

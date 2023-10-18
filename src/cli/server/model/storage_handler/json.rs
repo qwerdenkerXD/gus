@@ -49,7 +49,7 @@ impl JsonStorageHandler {
                     Ok(parsed) => db = parsed,
                     Err(err) => {
                         if !err.is_eof() {
-                            return Err(err.into());
+                            return Err(Error::new(ErrorKind::InvalidData, "Invalid storage file"));
                         }
                     }
                 }
@@ -213,9 +213,6 @@ mod tests {
         post_test(TEST_STORAGE_FILE);
     }
 
-    // test not completed, testing just the basic creation
-    // reading empty data file is also sth. to test
-    // also test all primary key types
     #[test]
     fn test_create_one() {
         const TEST_STORAGE_FILE: &str = "test_create_one.json";
@@ -228,15 +225,98 @@ mod tests {
                 storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
             }
         };
-        let record: Record = HashMap::from([
-            (AttrName("id".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1))),
-            (AttrName("name".to_string()), TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
-            (AttrName("year".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1994))),
-            (AttrName("actors".to_string()), TrueType::Array(vec![TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())])),
-            (AttrName("recommended".to_string()), TrueType::Primitive(TruePrimitiveType::Boolean(true)))
-        ]);
-        assert_eq!(handler.create_one(&record).unwrap(), record, "Creating a valid new record failed");
-        assert!(handler.create_one(&record).is_err(), "Created a new record with already existing id");
+        for key in ["1", "\"1\"", "true"] {
+            let record: Record = HashMap::from([
+                (AttrName("id".to_string()), from_str::<TrueType>(key).unwrap()),
+                (AttrName("name".to_string()), TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
+                (AttrName("year".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1994))),
+                (AttrName("actors".to_string()), TrueType::Array(vec![TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())])),
+                (AttrName("recommended".to_string()), TrueType::Primitive(TruePrimitiveType::Boolean(true)))
+            ]);
+            assert_eq!(handler.create_one(&record).unwrap(), record, "Creating a valid new record failed");
+            assert!(handler.create_one(&record).is_err(), "Created a new record with already existing id");
+        }
+
+        post_test(TEST_STORAGE_FILE);
+    }
+
+    #[test]
+    fn test_read_one() {
+        const TEST_STORAGE_FILE: &str = "test_read_one.json";
+
+        pre_test(TEST_STORAGE_FILE);
+        let handler = JsonStorageHandler {
+            model_name: ModelName(AttrName("movie".to_string())),
+            key_attr: AttrName("id".to_string()),
+            config: JsonStorageConfig {
+                storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
+            }
+        };
+        for key in ["1", "\"1\"", "true"] {
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
+            let id: TrueType = from_str(key).unwrap();
+            let record: Record = HashMap::from([
+                (AttrName("id".to_string()), id.clone())
+            ]);
+            assert_eq!(handler.read_one(&id).unwrap(), record, "Reading a valid new record failed");
+        }
+
+        assert!(handler.read_one(&from_str::<TrueType>("\"not existing\"").unwrap()).is_err(), "Expected error when reading from a not existing file");
+
+        post_test(TEST_STORAGE_FILE);
+    }
+
+    #[test]
+    fn test_update_one() {
+        const TEST_STORAGE_FILE: &str = "test_update_one.json";
+
+        pre_test(TEST_STORAGE_FILE);
+        let handler = JsonStorageHandler {
+            model_name: ModelName(AttrName("movie".to_string())),
+            key_attr: AttrName("id".to_string()),
+            config: JsonStorageConfig {
+                storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
+            }
+        };
+        for key in ["1", "\"1\"", "true"] {
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":\"dummy\" }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
+            let id: TrueType = from_str(key).unwrap();
+            let record: Record = HashMap::from([
+                (AttrName("id".to_string()), id.clone())
+            ]);
+            assert_eq!(handler.update_one(&record).unwrap(), record, "Updating an existing record failed");
+
+            let record: Record = HashMap::from([
+                (AttrName("id".to_string()), from_str::<TrueType>("\"not existing\"").unwrap())
+            ]);
+            assert!(handler.update_one(&record).is_err(), "Expected an error when updating a not existing record");
+        }
+
+        post_test(TEST_STORAGE_FILE);
+    }
+
+    #[test]
+    fn test_delete_one() {
+        const TEST_STORAGE_FILE: &str = "test_delete_one.json";
+
+        pre_test(TEST_STORAGE_FILE);
+        let handler = JsonStorageHandler {
+            model_name: ModelName(AttrName("movie".to_string())),
+            key_attr: AttrName("id".to_string()),
+            config: JsonStorageConfig {
+                storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
+            }
+        };
+        for key in ["1", "\"1\"", "true"] {
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
+            let id: TrueType = from_str(key).unwrap();
+            let record: Record = HashMap::from([
+                (AttrName("id".to_string()), id.clone())
+            ]);
+            assert_eq!(handler.delete_one(&id).unwrap(), record, "Deleting a valid new record failed");
+        }
+
+        assert!(handler.delete_one(&from_str::<TrueType>("\"not existing\"").unwrap()).is_err(), "Expected error when deleting from a not existing file");
 
         post_test(TEST_STORAGE_FILE);
     }

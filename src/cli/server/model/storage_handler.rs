@@ -67,10 +67,11 @@ fn get_storage_configs() -> Result<StorageConfig> {
             if data.is_err() {
                 return Err(Error::new(ErrorKind::PermissionDenied, "Unable to read storage definition file, make sure it's utf-8 only"))
             }
-            if let Ok(storages) = from_str::<StorageConfig>(&data.unwrap()) {
-                storage_configs = storages;
-            } else {
-                return Err(Error::new(ErrorKind::InvalidData, "The storage definition file is invalid"))
+            match from_str::<StorageConfig>(&data.unwrap()) {
+                Ok(storages) => storage_configs = storages,
+                Err(err) => if !err.is_eof() {
+                    return Err(Error::new(ErrorKind::InvalidData, "The storage definition file is invalid"));
+                }
             }
         }
 

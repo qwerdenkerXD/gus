@@ -35,9 +35,9 @@ pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model.storage_type, name)?;
+        let storage_handler = get_handler(&model)?;
         let record: Record = parse_record(json, &model)?;
-        return storage_handler.create_one(record.get(&model.primary_key).unwrap(), &record);
+        return storage_handler.create_one(&record);
     };
     todo!("creating records is currently only possible when the server is running")
 }
@@ -46,7 +46,7 @@ pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model.storage_type, name)?;
+        let storage_handler = get_handler(&model)?;
         let true_id: &TrueType = &parse_id_str(id, &model)?;
         return storage_handler.read_one(true_id);
     };
@@ -57,7 +57,7 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model.storage_type, name)?;
+        let storage_handler = get_handler(&model)?;
         let mut required: Vec<AttrName> = model.required;
 
         // parse record to get its attributes
@@ -72,7 +72,7 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
         let mut valid_record: Record = parse_record(json, &model)?;
         let true_id: &TrueType = &parse_id_str(id, &model)?;
         valid_record.insert(model.primary_key.clone(), true_id.clone());
-        return storage_handler.update_one(true_id, &record);
+        return storage_handler.update_one(&valid_record);
     };
     todo!("updating records is currently only possible when the server is running")
 }
@@ -81,7 +81,7 @@ pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model.storage_type, name)?;
+        let storage_handler = get_handler(&model)?;
         let true_id: &TrueType = &parse_id_str(id, &model)?;
         return storage_handler.delete_one(true_id);
     };

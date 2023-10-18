@@ -13,6 +13,7 @@ use std::io::{
 use super::StorageHandler;
 use super::super::{
     ModelName,
+    AttrName,
     TrueType,
     Record
 };
@@ -33,6 +34,7 @@ pub struct JsonStorageConfig {
 }
 
 pub struct JsonStorageHandler {
+    pub key_attr: AttrName,
     pub model_name: ModelName,
     pub config: JsonStorageConfig
 }
@@ -77,8 +79,8 @@ impl JsonStorageHandler {
 }
 
 impl StorageHandler for JsonStorageHandler {
-    fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record> {
-        let id_string: String = to_string(id).unwrap();
+    fn create_one(&self, record: &Record) -> Result<Record> {
+        let id_string: String = to_string(record.get(&self.key_attr).unwrap()).unwrap();
         let db = &mut self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         if data.get(&id_string).is_some() {
@@ -99,8 +101,8 @@ impl StorageHandler for JsonStorageHandler {
             None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {}", id_string).as_str())),
         }
     }
-    fn update_one(&self, id: &TrueType, record: &Record) -> Result<Record> {
-        let id_string: String = to_string(id).unwrap();
+    fn update_one(&self, record: &Record) -> Result<Record> {
+        let id_string: String = to_string(record.get(&self.key_attr).unwrap()).unwrap();
         let db = &mut self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         let mut new_record: Record;
@@ -166,6 +168,7 @@ mod tests {
         pre_test(TEST_STORAGE_FILE);
         let handler = JsonStorageHandler {
             model_name: ModelName(AttrName("movie".to_string())),
+            key_attr: AttrName("id".to_string()),
             config: JsonStorageConfig {
                 storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
             }
@@ -220,6 +223,7 @@ mod tests {
         pre_test(TEST_STORAGE_FILE);
         let handler = JsonStorageHandler {
             model_name: ModelName(AttrName("movie".to_string())),
+            key_attr: AttrName("id".to_string()),
             config: JsonStorageConfig {
                 storage_file: Some(PathBuf::from(TEST_STORAGE_FILE))
             }
@@ -231,8 +235,8 @@ mod tests {
             (AttrName("actors".to_string()), TrueType::Array(vec![TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())])),
             (AttrName("recommended".to_string()), TrueType::Primitive(TruePrimitiveType::Boolean(true)))
         ]);
-        assert_eq!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).unwrap(), record, "Creating a valid new record failed");
-        assert!(handler.create_one(&TrueType::Primitive(TruePrimitiveType::Integer(1)), &record).is_err(), "Created a new record with already existing id");
+        assert_eq!(handler.create_one(&record).unwrap(), record, "Creating a valid new record failed");
+        assert!(handler.create_one(&record).is_err(), "Created a new record with already existing id");
 
         post_test(TEST_STORAGE_FILE);
     }

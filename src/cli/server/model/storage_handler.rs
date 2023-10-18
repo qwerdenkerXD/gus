@@ -16,7 +16,7 @@ use serde_derive::{
     Serialize
 };
 use super::{
-    ModelName,
+    ModelDefinition,
     TrueType,
     Record
 };
@@ -37,19 +37,20 @@ struct StorageConfig {
 }
 
 pub trait StorageHandler {
-    fn create_one(&self, id: &TrueType, record: &Record) -> Result<Record>;
+    fn create_one(&self, record: &Record) -> Result<Record>;
     fn read_one(&self, id: &TrueType) -> Result<Record>;
-    fn update_one(&self, id: &TrueType, record: &Record) -> Result<Record>;
+    fn update_one(&self, record: &Record) -> Result<Record>;
     fn delete_one(&self, id: &TrueType) -> Result<Record>;
 }
 
-pub fn get_handler(storage_type: &StorageType, model_name: &ModelName) -> Result<impl StorageHandler> {
+pub fn get_handler(model: &ModelDefinition) -> Result<impl StorageHandler> {
     let storage_config: StorageConfig = get_storage_configs()?;
-    match storage_type {
+    match model.storage_type {
         StorageType::json =>
             Ok(
                 JsonStorageHandler {
-                    model_name: model_name.clone(),
+                    model_name: model.model_name.clone(),
+                    key_attr: model.primary_key.clone(),
                     config: storage_config.json.unwrap()
                 }
             ),

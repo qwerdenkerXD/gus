@@ -271,7 +271,7 @@ mod tests {
         assert!(write(file, r#"
             {
                 "movie": {
-                    "\"read\"": {"id": "read"},
+                    "\"get\"": {"id": "get"},
                     "\"put\"": {"id": "put"},
                     "\"delete\"": {"id": "delete"}
                 }
@@ -311,7 +311,7 @@ mod tests {
         assert_eq!(res_data.data, expected, "Sent data doesn't match the response");
 
         // test invalid endpoints
-        for endpoint in ["/", "/api", "/api/", "/api/rest", "/api/rest/", "/api/rest/movie/1"] {
+        for endpoint in ["/api/rest", "/api/rest/", "/api/rest/movie/1"] {
             let req = TestRequest::post().uri(endpoint)
                                          .set_payload("")
                                          .to_request();
@@ -325,6 +325,110 @@ mod tests {
                                      .to_request();
         let res: ServiceResponse = call_service(&app, req).await;
         assert_eq!(res.status(), bad_request("".to_string()).status(), "Mismatching status code when trying to request with invalid body");
+
+        post_test();
+    }
+
+    #[actix_web::test]
+    async fn test_rest_api_get() {
+        pre_test();
+
+        let app = init_service(App::new().service(uri_handler_get)).await;
+
+        // test valid request
+        let expected: Record = from_str(r#"
+            {
+                "id": "get"
+            }
+        "#).unwrap();
+        let req = TestRequest::get().uri("/api/rest/movie/get")
+                                    .to_request();
+        let res: ServiceResponse = call_service(&app, req).await;
+        assert!(res.status().is_success(), "Unexpected error when fetching a record");
+
+        let res_body: BodyBytes = res.into_body().try_into_bytes().unwrap();
+        let res_data: JsonData = from_str(from_utf8(&res_body).unwrap()).unwrap();
+        assert_eq!(res_data.data, expected, "Responded data doesn't match the expected");
+
+        // test invalid endpoints
+        for endpoint in ["/api/rest", "/api/rest/", "/api/rest/movie/", "/api/rest/movie/not_existing_record"] {
+            let req = TestRequest::get().uri(endpoint)
+                                         .to_request();
+            let res: ServiceResponse = call_service(&app, req).await;
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+        }
+
+        post_test();
+    }
+
+    #[actix_web::test]
+    async fn test_rest_api_put() {
+        pre_test();
+
+        let app = init_service(App::new().service(uri_handler_put)).await;
+
+        // test valid request
+        let valid_input = r#"
+            {
+                "id": "doesn't matter",
+                "name": "test"
+            }
+        "#;
+        let req = TestRequest::put().uri("/api/rest/movie/put")
+                                    .set_payload(valid_input)
+                                    .to_request();
+        let res: ServiceResponse = call_service(&app, req).await;
+        assert!(res.status().is_success(), "Unexpected error when updating a valid record");
+
+        let expected: Record = from_str(r#"
+            {
+                "id": "put",
+                "name": "test"
+            }
+        "#).unwrap();
+        let res_body: BodyBytes = res.into_body().try_into_bytes().unwrap();
+        let res_data: JsonData = from_str(from_utf8(&res_body).unwrap()).unwrap();
+        assert_eq!(res_data.data, expected, "Responded data doesn't match the expected");
+
+        // test invalid endpoints
+        for endpoint in ["/api/rest", "/api/rest/", "/api/rest/movie/", "/api/rest/movie/not_existing_record"] {
+            let req = TestRequest::put().uri(endpoint)
+                                         .to_request();
+            let res: ServiceResponse = call_service(&app, req).await;
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+        }
+
+        post_test();
+    }
+
+    #[actix_web::test]
+    async fn test_rest_api_delete() {
+        pre_test();
+
+        let app = init_service(App::new().service(uri_handler_delete)).await;
+
+        // test valid request
+        let expected: Record = from_str(r#"
+            {
+                "id": "delete"
+            }
+        "#).unwrap();
+        let req = TestRequest::delete().uri("/api/rest/movie/delete")
+                                    .to_request();
+        let res: ServiceResponse = call_service(&app, req).await;
+        assert!(res.status().is_success(), "Unexpected error when deleting a record");
+
+        let res_body: BodyBytes = res.into_body().try_into_bytes().unwrap();
+        let res_data: JsonData = from_str(from_utf8(&res_body).unwrap()).unwrap();
+        assert_eq!(res_data.data, expected, "Responded data doesn't match the expected");
+
+        // test invalid endpoints
+        for endpoint in ["/api/rest", "/api/rest/", "/api/rest/movie/", "/api/rest/movie/not_existing_record"] {
+            let req = TestRequest::delete().uri(endpoint)
+                                         .to_request();
+            let res: ServiceResponse = call_service(&app, req).await;
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+        }
 
         post_test();
     }

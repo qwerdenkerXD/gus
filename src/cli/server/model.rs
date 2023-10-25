@@ -26,6 +26,7 @@ use ErrorKind::{
 };
 
 // used functions
+pub use storage_handler::configure_storages;
 use std::fs::{
     read_to_string,
     read_dir
@@ -114,7 +115,7 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
         },
 
         // this shouldn't occur, since the model definition should be validated before
-        _ => Err(Error::new(ErrorKind::Unsupported, "Arrays for keys aren't allowed"))
+        _ => unreachable!("Model definition has to be valid")
     }
 }
 

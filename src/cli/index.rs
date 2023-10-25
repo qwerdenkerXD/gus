@@ -28,6 +28,7 @@ pub struct Cli {
 pub enum Commands {
     Start(StartServer),
     CreateModel(CreateModel),
+    ConfigureStorages(ConfigureStorages)
 }
 
 #[derive(Parser, Debug)]
@@ -48,6 +49,13 @@ pub struct StartServer {
 pub struct CreateModel {
     #[clap(name = "models-path", short, long, default_value = "./", value_name = "DIR", value_hint = DirPath, help = "The path to the model definitions")]
     pub modelspath: PathBuf
+}
+
+#[derive(Parser, Debug)]
+#[clap(name = "configure-storages", about = "An interactive Dialog to configure storage types properly")]
+pub struct ConfigureStorages {
+    #[clap(name = "storage-definitions", short, long, default_value = "./storages.json", value_name = "FILE", value_hint = FilePath, help = "The path to the storage definitions' file")]
+    pub storage_definitions: PathBuf
 }
 
 pub fn get_validated_args() -> Result<Cli, ClapError> {
@@ -81,7 +89,7 @@ fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &start.modelspath.display(), &start.modelspath.display())).format(&mut Cli::command()));
             }
             if let Some(path_buf) = &start.storage_definitions {
-                if !path_buf.as_path().is_file() {
+                if !path_buf.is_file() {
                     return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--storage-definitions <FILE>': '{}' is not a file", &path_buf.display(), &path_buf.display())).format(&mut Cli::command()));
                 }
             }
@@ -89,6 +97,12 @@ fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
         Commands::CreateModel(ref create) => {
             if !create.modelspath.as_path().is_dir() {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &create.modelspath.display(), &create.modelspath.display())).format(&mut Cli::command()));
+            }
+        },
+        Commands::ConfigureStorages(ref configure) => {
+            let path_buf: &PathBuf = &configure.storage_definitions;
+            if path_buf.file_name().is_none() || path_buf.parent().is_none() || !path_buf.parent().unwrap().is_dir() {
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--storage-definitions <FILE>': '{}' is not a file in an existing directory", &path_buf.display(), &path_buf.display())).format(&mut Cli::command()));
             }
         }
     }

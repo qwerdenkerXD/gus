@@ -2,9 +2,8 @@ mod index;
 mod server;
 
 pub use index::*;
-use server::model::model_cli::{
-    create_model
-};
+use server::model::model_cli::create_model;
+use server::model::configure_storages;
 
 pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>> {
     let cli: Result<Cli, ClapError> = get_validated_args();
@@ -16,7 +15,8 @@ pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>
     }
     match cli.unwrap().command {
         Commands::Start(args) => return Some(server::start(args.port, args.bind)),
-        Commands::CreateModel(args) => create_model(args)
+        Commands::CreateModel(args) => create_model(args),
+        Commands::ConfigureStorages(args) => configure_storages(args)
     }
 
     None

@@ -31,13 +31,6 @@ use serde_json::{
 };
 
 pub fn create_model(args: CreateModel) {
-    if let Ok(exists) = Path::new(&args.modelspath.clone()).try_exists() {
-        if !exists {
-            eprintln!("The given models' path does not exist");
-            return;
-        }
-    }
-
     let mut attributes: Attributes = HashMap::new();
     let mut primary_key_opts: Vec<String> = vec!();
     let mut required_opts: Vec<String> = vec!();

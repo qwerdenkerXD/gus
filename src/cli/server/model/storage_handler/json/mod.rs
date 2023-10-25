@@ -1,3 +1,5 @@
+pub mod json_cli;
+
 // used types
 use std::collections::HashMap;
 use std::path::PathBuf;

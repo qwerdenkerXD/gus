@@ -255,7 +255,6 @@ fn rest_api_delete(uri: &str) -> HttpResponse {
 mod tests {
     use super::*;
 
-
     use actix_web::dev::ServiceResponse;
     use actix_web::test::TestRequest;
     use actix_web::body::MessageBody;

@@ -1,0 +1,17 @@
+{
+    "model_name": "yoga",
+    "storage_type": "json",
+    "attributes": {
+        "id": "Integer",
+        "name": "String",
+        "year": "Integer",
+        "actors": ["String"],
+        "recommended": "Boolean"
+    },
+    "primary_key": "id",
+    "required": [
+        "id",
+        "name",
+        "recommended"
+    ]
+}

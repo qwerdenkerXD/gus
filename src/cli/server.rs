@@ -1,4 +1,5 @@
 pub mod model;
+mod graphql;
 mod view;
 
 
@@ -16,8 +17,13 @@ use actix_web::web::{
     Bytes as BodyBytes,
     Path as UriParam
 };
+use graphql::{
+    GraphQLReturn,
+    GraphQLPost
+};
 
 // used functions
+use graphql::handle_post_request;
 use std::str::from_utf8;
 use view::get_view_file;
 use model::{
@@ -141,7 +147,12 @@ async fn uri_handler_post(body: BodyBytes, uri: UriParam<String>) -> HttpRespons
         "api" => {
             match segments.remove(0) {
                 "rest" => rest_api_post(&segments.join("/"), &body),
-                "graphql" => bad_endpoint(),
+                "graphql" => {
+                    if segments.is_empty() {
+                        return graphql_api_post(&body);
+                    }
+                    bad_endpoint()
+                },
                 _ => bad_endpoint()
             }
         },
@@ -164,6 +175,23 @@ fn rest_api_post(uri: &str, body: &BodyBytes) -> HttpResponse {
         }),
         Err(err) => bad_request(err.to_string())
     }
+}
+
+fn graphql_api_post(body: &BodyBytes) -> HttpResponse {
+    let body_str: Result<&str, Utf8Error> = from_utf8(body);
+    if body_str.is_err() {
+        return bad_request("Invalid body, accepting utf-8 only".to_string())
+    }
+    let gql_post: Result<GraphQLPost, GraphQLReturn> = GraphQLPost::try_from(body_str.unwrap());
+    if let Err(gql_return) = gql_post {
+        return HttpResponse::BadRequest().json(gql_return);
+    }
+
+    let handled: GraphQLReturn = handle_post_request(gql_post.unwrap());
+    if handled.data.is_none() {
+        return HttpResponse::BadRequest().json(handled);
+    }
+    HttpResponse::Ok().json(handled)
 }
 
 

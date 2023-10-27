@@ -292,7 +292,7 @@ mod tests {
             model_name: ModelName(AttrName("Test".to_string())),
             storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Array([PrimitiveType::String]))
             ]),
             required: vec!(AttrName("id".to_string())),
@@ -305,7 +305,7 @@ mod tests {
             model_name: ModelName(AttrName("Test".to_string())),
             storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
-            attributes: HashMap::new(),
+            attributes: Attributes::new(),
             required: vec!(AttrName("id".to_string())),
             constraints: None
         };
@@ -316,7 +316,7 @@ mod tests {
             model_name: ModelName(AttrName("Test".to_string())),
             storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
             ]),
             required: vec!(),
@@ -329,7 +329,7 @@ mod tests {
             model_name: ModelName(AttrName("Test".to_string())),
             storage_type: StorageType::json,
             primary_key: AttrName("id".to_string()),
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String))
             ]),
             required: vec!(

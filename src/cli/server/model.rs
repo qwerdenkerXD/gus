@@ -235,7 +235,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
         };
     }
 
-    let mut record: Record = HashMap::new();
+    let mut record = Record::new();
 
     // convert parsed_json to Record
     for (key, value) in parsed_json.unwrap() {
@@ -298,7 +298,7 @@ mod tests {
                 "recommended": true
             }
         "#;
-        let expected_record: Record = HashMap::from([
+        let expected_record = Record::from([
             (AttrName("id".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1))),
             (AttrName("name".to_string()),TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
             (AttrName("year".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1994))),
@@ -309,7 +309,7 @@ mod tests {
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
             storage_type: StorageType::json,
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
                 (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
@@ -428,7 +428,7 @@ mod tests {
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
             storage_type: StorageType::json,
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
                 (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
@@ -470,7 +470,7 @@ mod tests {
         let movie_model = ModelDefinition {
             model_name: ModelName(AttrName("movie".to_string())),
             storage_type: StorageType::json,
-            attributes: HashMap::from([
+            attributes: Attributes::from([
                 (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
                 (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),

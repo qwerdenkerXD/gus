@@ -199,7 +199,7 @@ mod tests {
             (ModelName(AttrName("another".to_string())), HashMap::from([
                     (
                         "1".to_string(),
-                        HashMap::from([(AttrName("id".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1)))])
+                        Record::from([(AttrName("id".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1)))])
                     )
                 ])
             ),
@@ -228,7 +228,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            let record: Record = HashMap::from([
+            let record = Record::from([
                 (AttrName("id".to_string()), from_str::<TrueType>(key).unwrap()),
                 (AttrName("name".to_string()), TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
                 (AttrName("year".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1994))),
@@ -257,7 +257,7 @@ mod tests {
         for key in ["1", "\"1\"", "true"] {
             assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
-            let record: Record = HashMap::from([
+            let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
             ]);
             assert_eq!(handler.read_one(&id).unwrap(), record, "Reading a valid new record failed");
@@ -283,12 +283,12 @@ mod tests {
         for key in ["1", "\"1\"", "true"] {
             assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":\"dummy\" }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
-            let record: Record = HashMap::from([
+            let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
             ]);
             assert_eq!(handler.update_one(&record).unwrap(), record, "Updating an existing record failed");
 
-            let record: Record = HashMap::from([
+            let record = Record::from([
                 (AttrName("id".to_string()), from_str::<TrueType>("\"not existing\"").unwrap())
             ]);
             assert!(handler.update_one(&record).is_err(), "Expected an error when updating a not existing record");
@@ -312,7 +312,7 @@ mod tests {
         for key in ["1", "\"1\"", "true"] {
             assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
-            let record: Record = HashMap::from([
+            let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
             ]);
             assert_eq!(handler.delete_one(&id).unwrap(), record, "Deleting a valid new record failed");

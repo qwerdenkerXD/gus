@@ -1,6 +1,5 @@
 // used types
 use dialoguer::console::Style;
-use std::collections::HashMap;
 use crate::cli::CreateModel;
 use super::{
     ModelDefinition,
@@ -35,7 +34,7 @@ use serde_json::{
 };
 
 pub fn create_model(args: CreateModel) {
-    let mut attributes: Attributes = HashMap::new();
+    let mut attributes = Attributes::new();
     let mut primary_key_opts: Vec<String> = vec!();
     let mut required_opts: Vec<String> = vec!();
     let mut required: Vec<AttrName> = vec!();

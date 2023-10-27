@@ -19,6 +19,7 @@ use actix_web::web::{
 
 // used functions
 use std::str::from_utf8;
+use view::get_view_file;
 use model::{
     create_one,
     read_one,
@@ -37,9 +38,6 @@ use actix_web::{
     put,
     delete
 };
-
-// used functions
-use view::get_view_file;
 
 pub async fn start(port: u16, ip: Ipv4Addr) -> Result<(), Error> {
     let server = HttpServer::new(|| 

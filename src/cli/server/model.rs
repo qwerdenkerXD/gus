@@ -35,6 +35,7 @@ use std::fs::{
 pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        name.assert_singularity()?;
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
         let record: Record = parse_record(json, &model)?;
@@ -46,6 +47,7 @@ pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
 pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        name.assert_singularity()?;
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
         let true_id: &TrueType = &parse_uri_id(id, &model)?;
@@ -57,6 +59,7 @@ pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
 pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        name.assert_singularity()?;
         let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
         let mut required: Vec<AttrName> = model.required;
@@ -81,6 +84,7 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
 pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
     if let Some(args) = cli::get_valid_start_args() {
         let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+        name.assert_singularity()?;
         let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
         let storage_handler = get_handler(&model)?;
         let true_id: &TrueType = &parse_uri_id(id, &model)?;
@@ -136,7 +140,7 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
 */
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
     let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
-    models.retain(|m| &m.model_name == model_name);
+    models.retain(|m| m.model_name.plural() == model_name.plural());
     if models.is_empty() {
         return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
     }
@@ -177,10 +181,10 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(data) = read_to_string(&path.path()) {
             if let Ok(model) = ModelDefinition::try_from(data.as_str()) {
-                if model_names.contains(&model.model_name) && !duplicates.contains(&model.model_name) {
-                    duplicates.push(model.model_name.clone());
+                if model_names.contains(&model.model_name.plural()) && !duplicates.contains(&model.model_name.plural()) {
+                    duplicates.push(model.model_name.plural());
                 }
-                model_names.push(model.model_name.clone());
+                model_names.push(model.model_name.plural());
                 models.push(model);
             }
         }
@@ -188,7 +192,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
 
     // remove duplicates
     for dup in &duplicates {
-        models.retain(|m| &m.model_name != dup);
+        models.retain(|m| &m.model_name.plural() != dup);
     }
 
     if models.is_empty() {

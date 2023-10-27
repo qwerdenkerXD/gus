@@ -25,6 +25,10 @@ use std::path::{
 
 // used functions
 use std::fs::write;
+use cruet::string::{
+    singularize::to_singular as singularize,
+    pluralize::to_plural as pluralize
+};
 use serde_json::{
     to_string_pretty,
     from_str
@@ -39,7 +43,7 @@ pub fn create_model(args: CreateModel) {
     // get model name
     let model_name: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("Model Name:")
-        .validate_with(AttrValidator)
+        .validate_with(ModelNameValidator)
         .interact_text()
         .unwrap();
 
@@ -60,7 +64,7 @@ pub fn create_model(args: CreateModel) {
         // get attribute name
         let attr_name: String = Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Attribute Name:")
-            .validate_with(AttrValidator)
+            .validate_with(AttrNameValidator)
             .interact_text()
             .unwrap();
 
@@ -195,9 +199,9 @@ pub fn create_model(args: CreateModel) {
     }
 }
 
-struct AttrValidator;
+struct AttrNameValidator;
 
-impl Validator<String> for AttrValidator {
+impl Validator<String> for AttrNameValidator {
     type Err = String;
 
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
@@ -205,5 +209,20 @@ impl Validator<String> for AttrValidator {
             Ok(_) => Ok(()),
             Err(err) => Err(format!("{}", err))
         }
+    }
+}
+
+struct ModelNameValidator;
+
+impl Validator<String> for ModelNameValidator {
+    type Err = String;
+
+    fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
+        let mut attr_validator = AttrNameValidator;
+        attr_validator.validate(input)?;
+        if pluralize(input) == singularize(input) {
+            return Err("Name has no plural variant".to_string());
+        }
+        Ok(())
     }
 }

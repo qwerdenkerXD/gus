@@ -12,6 +12,7 @@ exclude = ["./react_app/*"]
 [dependencies]
 actix-web = "4.4.0"
 clap = { version = "4.4.3", features = ["derive"] }
+cruet = "0.13.3"
 dialoguer = "0.10.4"
 futures = "0.3.28"
 regex = "1.9.5"

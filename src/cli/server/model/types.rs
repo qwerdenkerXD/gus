@@ -22,7 +22,12 @@ use std::io::{
 };
 
 // used functions
+use cruet::case::camel::to_camel_case as camelize;
 pub use serde_json::from_str as parse;
+use cruet::string::{
+    singularize::to_singular as singularize,
+    pluralize::to_plural as pluralize
+};
 
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
@@ -124,6 +129,11 @@ impl TryFrom<&str> for ModelDefinition {
         Empty tuple if the model is valid, else Error
 */
 pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
+    // validate model name inflection
+    if definition.model_name.singular() == definition.model_name.plural() {
+        return Err(Error::new(ErrorKind::InvalidData, "Name has no plural variant"));
+    }
+
     // validate primary key
     if let Some(ty) = definition.attributes.get(&definition.primary_key) {
         if let AttrType::Array(_) = ty {
@@ -149,6 +159,30 @@ pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
 
 #[derive(Deserialize, Serialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct ModelName(pub AttrName);
+
+impl ModelName {
+    pub fn singular(&self) -> Self {
+        ModelName(AttrName(singularize(&self.0.0)))
+    }
+    pub fn assert_singularity(&self) -> Result<()> {
+        if self != &self.singular() {
+            return Err(Error::new(ErrorKind::InvalidData, "Expected singular model name, got plural variant"));
+        }
+        Ok(())
+    }
+    pub fn plural(&self) -> Self {
+        ModelName(AttrName(pluralize(&self.0.0)))
+    }
+    pub fn assert_plurality(&self) -> Result<()> {
+        if self != &self.plural() {
+            return Err(Error::new(ErrorKind::InvalidData, "Expected plural model name, got singular variant"));
+        }
+        Ok(())
+    }
+    pub fn camel(&self) -> Self {
+        ModelName(AttrName(camelize(&self.0.0)))
+    }
+}
 
 // define AttrName with custom Deserializer that validates REST-ful Strings
 #[derive(Serialize, Eq, PartialEq, Hash, Clone, Debug)]
@@ -205,7 +239,7 @@ fn validate_attr_name(name: &str) -> Result<()> {
             return Ok(());
         }
     }
-    Err(Error::new(ErrorKind::InvalidData, "Attribute name is not alphabetic in camelCase, PascalCase, snake_case or spinal-case"))
+    Err(Error::new(ErrorKind::InvalidData, "Name is not alphabetic in camelCase, PascalCase, snake_case or spinal-case"))
 }
 
 pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {

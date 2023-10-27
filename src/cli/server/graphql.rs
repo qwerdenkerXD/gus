@@ -4,7 +4,8 @@ use super::model::Record;
 use apollo_parser::cst::{
     OperationDefinition as Operation,
     FragmentDefinition as Fragment,
-    CstChildren
+    CstChildren,
+    Selection
 };
 use serde_derive::{
     Deserialize,
@@ -24,6 +25,12 @@ use apollo_parser::cst::Definition;
 
 // used functions
 use serde_json::from_str;
+use super::model::{
+    create_one,
+    read_one,
+    update_one,
+    delete_one
+};
 
 pub type GraphQLGet = String;
 type Data = HashMap<Root, Record>;
@@ -43,11 +50,7 @@ pub struct GraphQLReturn {
 #[allow(non_snake_case)]
 pub struct GraphQLPost {
     query: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     operationName: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     variables: Option<HashMap<String, String>>,
 }
 
@@ -102,27 +105,36 @@ pub fn handle_post_request(body: GraphQLPost) -> GraphQLReturn {
         }
     }
 
-    let exec_operation: Operation;
-    match get_executing_operation(operations, body.operationName) {
-        Ok(op) => exec_operation = op,
+    let exec_operation: Operation = match get_executing_operation(operations, body.operationName) {
+        Ok(op) => op,
         Err(ret) => return ret
-    }
+    };
 
-    todo!()
+    match exec_operation.operation_type() {
+        Some(ty) => {
+            if ty.query_token().is_some() {
+                handle_query(exec_operation)
+            } else if ty.mutation_token().is_some() {
+                handle_mutation(exec_operation)
+            } else {
+                handle_subscription()
+            }
+        },
+        None => handle_query(exec_operation)
+    }
 }
 
 pub fn handle_get_request(query: GraphQLGet) -> GraphQLReturn {
     handle_post_request(GraphQLPost::from(query))
 }
 
-fn get_executing_operation(operations: Vec<Operation>, operation_name: Option<String>) -> Result<Operation, GraphQLReturn> {
-    let mut ops: Vec<Operation> = operations;
-    match ops.len() {
+fn get_executing_operation(mut operations: Vec<Operation>, operation_name: Option<String>) -> Result<Operation, GraphQLReturn> {
+    match operations.len() {
         0 => Err(GraphQLReturn {
             errors: Some(vec!("GraphQL Error: Document does not contain any operations".to_string())),
             data: None
         }),
-        1 => Ok(ops.pop().unwrap()),
+        1 => Ok(operations.pop().unwrap()),
         len => {
             if operation_name.is_none() {
                 return Err(GraphQLReturn {
@@ -130,13 +142,13 @@ fn get_executing_operation(operations: Vec<Operation>, operation_name: Option<St
                     data: None
                 });
             }
-            ops.retain(|o| {
+            operations.retain(|o| {
                 match o.name() {
                     Some(name) => &name.text() == operation_name.as_ref().unwrap(),
                     None => false
                 }
             });
-            match ops.pop() {
+            match operations.pop() {
                 Some(o) => Ok(o),
                 None => Err(GraphQLReturn {
                     errors: Some(vec!(format!("GraphQL Error: Operation with name {} does not exist", operation_name.unwrap().as_str()))),
@@ -145,4 +157,51 @@ fn get_executing_operation(operations: Vec<Operation>, operation_name: Option<St
             }
         }
     }
+}
+
+fn handle_query(query_op: Operation) -> GraphQLReturn {
+    for root_resolver in query_op.selection_set().unwrap().selections() {
+        match root_resolver {
+            Selection::Field(field) => {
+                let resolver_name: &str = &field.name().unwrap().text();
+                if let Some(model_name) = resolver_name.strip_prefix("readOne") {
+                    todo!()
+                } else {  // must be the pluralized model name for readMany/search
+                    todo!()
+                }
+            },
+            Selection::FragmentSpread(_) => todo!(),
+            Selection::InlineFragment(_) => todo!()
+        }
+    }
+
+    unreachable!()
+}
+
+fn handle_mutation(mutation_op: Operation) -> GraphQLReturn {
+    for root_resolver in mutation_op.selection_set().unwrap().selections() {
+        match root_resolver {
+            Selection::Field(field) => {
+                let resolver_name: &str = &field.name().unwrap().text();
+                if let Some(model_name) = resolver_name.strip_prefix("addOne") {
+                    todo!()
+                } else if let Some(model_name) = resolver_name.strip_prefix("updateOne") {
+                    todo!()
+                } else {
+                    return GraphQLReturn {
+                        errors: Some(vec!(format!("Cannot query field \"{}\" on type \"Query\"", field.name().unwrap().text()))),
+                        data: None
+                    }
+                }
+            },
+            Selection::FragmentSpread(_) => todo!(),
+            Selection::InlineFragment(_) => todo!()
+        }
+    }
+
+    unreachable!()
+}
+
+fn handle_subscription() -> GraphQLReturn {
+    todo!()
 }

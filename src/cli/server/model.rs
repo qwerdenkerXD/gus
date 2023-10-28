@@ -140,7 +140,7 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
 */
 pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
     let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
-    models.retain(|m| m.model_name.plural() == model_name.plural());
+    models.retain(|m| m.model_name.plural().camel() == model_name.plural().camel());
     if models.is_empty() {
         return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
     }
@@ -181,10 +181,10 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
         // ignore occuring errors, invalid files will be just ignored
         if let Ok(data) = read_to_string(&path.path()) {
             if let Ok(model) = ModelDefinition::try_from(data.as_str()) {
-                if model_names.contains(&model.model_name.plural()) && !duplicates.contains(&model.model_name.plural()) {
-                    duplicates.push(model.model_name.plural());
+                if model_names.contains(&model.model_name.plural().camel()) && !duplicates.contains(&model.model_name.plural().camel()) {
+                    duplicates.push(model.model_name.plural().camel());
                 }
-                model_names.push(model.model_name.plural());
+                model_names.push(model.model_name.plural().camel());
                 models.push(model);
             }
         }
@@ -192,7 +192,7 @@ pub fn parse_models(model_path: &Path) -> Result<Vec<ModelDefinition>>{
 
     // remove duplicates
     for dup in &duplicates {
-        models.retain(|m| &m.model_name.plural() != dup);
+        models.retain(|m| &m.model_name.plural().camel() != dup);
     }
 
     if models.is_empty() {

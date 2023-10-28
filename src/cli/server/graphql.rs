@@ -1,11 +1,22 @@
 // used types
-use std::collections::HashMap;
-use super::model::Record;
+use std::collections::{
+    BTreeMap,
+    HashMap
+};
+use super::model::{
+    ModelDefinition,
+    AttrName,
+    TrueType,
+    Record
+};
 use apollo_parser::cst::{
     OperationDefinition as Operation,
     FragmentDefinition as Fragment,
     CstChildren,
-    Selection
+    Selection,
+    Argument,
+    CstNode,
+    Field
 };
 use serde_derive::{
     Deserialize,
@@ -26,6 +37,7 @@ use apollo_parser::cst::Definition;
 // used functions
 use serde_json::from_str;
 use super::model::{
+    parse_model,
     create_one,
     read_one,
     update_one,
@@ -33,9 +45,20 @@ use super::model::{
 };
 
 pub type GraphQLGet = String;
-type Data = HashMap<Root, Record>;
+type RootData = BTreeMap<RootName, FieldData>;
+type FieldData = BTreeMap<FieldName, FieldValue>;
 type Errors = Vec<String>;
-type Root = String;
+type RootName = String;
+type FieldName = String;
+
+#[derive(Serialize, Debug)]
+#[serde(untagged)]
+pub enum FieldValue {
+    Field(TrueType),
+    Resolver(FieldData)
+}
+
+
 
 #[derive(Serialize, Debug)]
 pub struct GraphQLReturn {
@@ -43,7 +66,7 @@ pub struct GraphQLReturn {
     pub errors: Option<Errors>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Data>
+    pub data: Option<RootData>
 }
 
 #[derive(Deserialize)]
@@ -160,14 +183,43 @@ fn get_executing_operation(mut operations: Vec<Operation>, operation_name: Optio
 }
 
 fn handle_query(query_op: Operation) -> GraphQLReturn {
+    let mut data = RootData::new();
     for root_resolver in query_op.selection_set().unwrap().selections() {
         match root_resolver {
             Selection::Field(field) => {
                 let resolver_name: &str = &field.name().unwrap().text();
-                if let Some(model_name) = resolver_name.strip_prefix("readOne") {
-                    todo!()
-                } else {  // must be the pluralized model name for readMany/search
-                    todo!()
+                if resolver_name == "__schema" || resolver_name == "__type" {
+                    match resolve_introspection_field(&field) {
+                        Ok(resolved) => data.insert(resolver_name.to_string(), resolved),
+                        Err(ret) => return ret
+                    };
+                } else {
+                    if let Some(model_name) = resolver_name.strip_prefix("readOne") {
+                        let resolved_field_name: String = match field.alias() {
+                            Some(alias) => alias.name().unwrap().source_string(),
+                            None => resolver_name.to_string(),
+                        };
+
+                        let mut args: CstChildren<Argument> = match get_arguments(&field, vec!("id"), None) {  // TODO in model, get_id_attribute(model_name: &str)
+                            Ok(args) => args,
+                            Err(ret) => return ret
+                        };
+
+                        match read_one(model_name, &args.next().unwrap().value().unwrap().source_string()) {
+                            Ok(record) => {
+                                match resolve_schema_fields(&field, record) {
+                                    Ok(resolved) => data.insert(resolved_field_name, resolved),
+                                    Err(ret) => return ret
+                                };
+                            },
+                            Err(err) => return GraphQLReturn {
+                                errors: Some(vec!(format!("{}", err))),
+                                data: None
+                            }
+                        }
+                    } else {
+                        todo!("readMany currently not implemented")
+                    }
                 }
             },
             Selection::FragmentSpread(_) => todo!(),
@@ -175,7 +227,10 @@ fn handle_query(query_op: Operation) -> GraphQLReturn {
         }
     }
 
-    unreachable!()
+    GraphQLReturn {
+        data: Some(data),
+        errors: None
+    }
 }
 
 fn handle_mutation(mutation_op: Operation) -> GraphQLReturn {
@@ -203,5 +258,77 @@ fn handle_mutation(mutation_op: Operation) -> GraphQLReturn {
 }
 
 fn handle_subscription() -> GraphQLReturn {
+    todo!()
+}
+
+fn resolve_schema_fields(field: &Field, record: Record) -> Result<FieldData, GraphQLReturn> {
+    let mut data = FieldData::new();
+    match field.selection_set() {
+        Some(selections) => {
+            for sel in selections.selections() {
+                match sel {
+                    Selection::Field(field) => {
+                        if field.selection_set().is_none() {
+                            let attr_name = AttrName(field.name().unwrap().source_string());
+                            let value: TrueType = match record.get(&attr_name) {
+                                Some(val) => val.clone(),
+                                None => return Err(GraphQLReturn {
+                                    errors: Some(vec!("invalid selections".to_string())),
+                                    data: None
+                                })
+                            };
+                            let resolved_field_name: String = match field.alias() {
+                                Some(alias) => alias.name().unwrap().source_string(),
+                                None => field.name().unwrap().source_string(),
+                            };
+
+                            data.insert(resolved_field_name, FieldValue::Field(value));
+                        } else {
+                            todo!()
+                        }
+                    },
+                    Selection::FragmentSpread(_) => todo!(),
+                    Selection::InlineFragment(_) => todo!()
+                }
+            }
+        },
+        None => return Err(GraphQLReturn {
+            errors: Some(vec!("must have a selection of subfields".to_string())),
+            data: None
+        })
+    }
+
+    Ok(data)
+}
+
+fn get_arguments(field: &Field, mut required_args: Vec<&str>, optional_args: Option<Vec<&str>>) -> Result<CstChildren<Argument>, GraphQLReturn> {
+    let args: CstChildren<Argument> = match field.arguments() {
+        Some(args) => args.arguments(),
+        None => return Err(GraphQLReturn {
+            errors: Some(vec!("missing arguments".to_string())),
+            data: None
+        })
+    };
+
+    let mut opt_args = optional_args.unwrap_or(vec!());
+
+    for arg in args {
+        let name: &str = &arg.name().unwrap().source_string();
+        if required_args.contains(&name) {
+            required_args.retain(|a| a != &name);
+        } else if opt_args.contains(&name) {
+            opt_args.retain(|a| a != &name);
+        } else {
+            return Err(GraphQLReturn {
+                errors: Some(vec!(format!("unknown argument \"{name}\""))),
+                data: None
+            });
+        }
+    }
+
+    Ok(field.arguments().unwrap().arguments())
+}
+
+fn resolve_introspection_field(field: &Field) -> Result<FieldData, GraphQLReturn> {
     todo!()
 }

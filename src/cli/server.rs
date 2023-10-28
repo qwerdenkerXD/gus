@@ -1,5 +1,4 @@
 pub mod model;
-mod graphql;
 mod view;
 
 
@@ -17,20 +16,18 @@ use actix_web::web::{
     Bytes as BodyBytes,
     Path as UriParam
 };
-use graphql::{
-    GraphQLReturn,
-    GraphQLPost
-};
+use model::GraphQLReturn;
 
 // used functions
-use graphql::handle_post_request;
 use std::str::from_utf8;
 use view::get_view_file;
 use model::{
     create_one,
     read_one,
     update_one,
-    delete_one
+    delete_one,
+    handle_gql_post_body,
+    handle_gql_query_arg
 };
 
 // used derive macros
@@ -182,12 +179,7 @@ fn graphql_api_post(body: &BodyBytes) -> HttpResponse {
     if body_str.is_err() {
         return bad_request("Invalid body, accepting utf-8 only".to_string())
     }
-    let gql_post: Result<GraphQLPost, GraphQLReturn> = GraphQLPost::try_from(body_str.unwrap());
-    if let Err(gql_return) = gql_post {
-        return HttpResponse::BadRequest().json(gql_return);
-    }
-
-    let handled: GraphQLReturn = handle_post_request(gql_post.unwrap());
+    let handled: GraphQLReturn = handle_gql_post_body(body_str.unwrap());
     if handled.data.is_none() {
         return HttpResponse::BadRequest().json(handled);
     }

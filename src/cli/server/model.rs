@@ -1,4 +1,5 @@
 mod types;
+mod graphql;
 mod storage_handler;
 
 pub mod model_cli;
@@ -11,7 +12,9 @@ use storage_handler::*;
 
 // used types
 pub use storage_handler::StorageType;
+pub use graphql::GraphQLReturn;
 use std::collections::HashMap;
+use graphql::GraphQLPost;
 use serde_json::Value;
 use std::fs::ReadDir;
 use std::path::Path;
@@ -27,70 +30,70 @@ use ErrorKind::{
 
 // used functions
 pub use storage_handler::configure_storages;
+use graphql::handle_gql_post;
 use std::fs::{
     read_to_string,
     read_dir
 };
 
+pub fn handle_gql_post_body(body: &str) -> GraphQLReturn {
+    match GraphQLPost::try_from(body) {
+        Ok(post) => handle_gql_post(post),
+        Err(ret) => ret
+    }
+}
+
+pub fn handle_gql_query_arg(query: &str) -> GraphQLReturn {
+    handle_gql_post(GraphQLPost::from(query.to_string()))
+}
+
 pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
-    if let Some(args) = cli::get_valid_start_args() {
-        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        name.assert_singularity()?;
-        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model)?;
-        let record: Record = parse_record(json, &model)?;
-        return storage_handler.create_one(&record);
-    };
-    todo!("creating records is currently only possible when the server is running")
+    let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+    name.assert_singularity()?;
+    let model: ModelDefinition = parse_model(name)?;
+    let storage_handler = get_handler(&model)?;
+    let record: Record = parse_record(json, &model)?;
+    storage_handler.create_one(&record)
 }
 
 pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
-    if let Some(args) = cli::get_valid_start_args() {
-        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        name.assert_singularity()?;
-        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model)?;
-        let true_id: &TrueType = &parse_uri_id(id, &model)?;
-        return storage_handler.read_one(true_id);
-    };
-    todo!("reading records is currently only possible when the server is running")
+    let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+    name.assert_singularity()?;
+    let model: ModelDefinition = parse_model(name)?;
+    let storage_handler = get_handler(&model)?;
+    let true_id: &TrueType = &parse_uri_id(id, &model)?;
+    storage_handler.read_one(true_id)
 }
 
 pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
-    if let Some(args) = cli::get_valid_start_args() {
-        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        name.assert_singularity()?;
-        let mut model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model)?;
-        let mut required: Vec<AttrName> = model.required;
+    let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+    name.assert_singularity()?;
+    let mut model: ModelDefinition = parse_model(name)?;
+    let storage_handler = get_handler(&model)?;
+    let mut required: Vec<AttrName> = model.required;
 
-        // parse record to get its attributes
-        model.required = vec!();
-        let record: Record = parse_record(json, &model)?;
+    // parse record to get its attributes
+    model.required = vec!();
+    let record: Record = parse_record(json, &model)?;
 
-        // update models' required attributes to the necessary
-        required.retain(|a| record.get(a).is_some());
-        model.required = required.clone();
+    // update models' required attributes to the necessary
+    required.retain(|a| record.get(a).is_some());
+    model.required = required.clone();
 
-        // parse the record again, this time with correct requirement check
-        let mut valid_record: Record = parse_record(json, &model)?;
-        let true_id: &TrueType = &parse_uri_id(id, &model)?;
-        valid_record.insert(model.primary_key.clone(), true_id.clone());
-        return storage_handler.update_one(&valid_record);
-    };
-    todo!("updating records is currently only possible when the server is running")
+    // parse the record again, this time with correct requirement check
+    let mut valid_record: Record = parse_record(json, &model)?;
+    let true_id: &TrueType = &parse_uri_id(id, &model)?;
+    valid_record.insert(model.primary_key.clone(), true_id.clone());
+    storage_handler.update_one(&valid_record)
 }
 
 pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
-    if let Some(args) = cli::get_valid_start_args() {
-        let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
-        name.assert_singularity()?;
-        let model: ModelDefinition = parse_model(args.modelspath.as_path(), name)?;
-        let storage_handler = get_handler(&model)?;
-        let true_id: &TrueType = &parse_uri_id(id, &model)?;
-        return storage_handler.delete_one(true_id);
-    };
-    todo!("reading records is currently only possible when the server is running")
+    let name: &ModelName = &ModelName(AttrName::try_from(model_name)?);
+    name.assert_singularity()?;
+    let model: ModelDefinition = parse_model(name)?;
+    let storage_handler = get_handler(&model)?;
+    let true_id: &TrueType = &parse_uri_id(id, &model)?;
+    storage_handler.delete_one(true_id)
 }
 
 
@@ -138,13 +141,16 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
         A valid model definition with the given model name
         or an Error if there isn't such model defined
 */
-pub fn parse_model(model_path: &Path, model_name: &ModelName) -> Result<ModelDefinition>{
-    let mut models: Vec<ModelDefinition> = parse_models(model_path)?;
-    models.retain(|m| m.model_name.plural().camel() == model_name.plural().camel());
-    if models.is_empty() {
-        return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
+pub fn parse_model(model_name: &ModelName) -> Result<ModelDefinition>{
+    if let Some(args) = cli::get_valid_start_args() {
+        let mut models: Vec<ModelDefinition> = parse_models(args.modelspath.as_path())?;
+        models.retain(|m| m.model_name.plural().camel() == model_name.plural().camel());
+        if models.is_empty() {
+            return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
+        }
+        return Ok(models.remove(0));
     }
-    Ok(models.remove(0))
+    todo!("parsing records is currently only possible when the server is running")
 }
 
 
@@ -429,7 +435,7 @@ mod tests {
             model_name: ModelName(AttrName("movie".to_string())),
             storage_type: StorageType::json,
             attributes: Attributes::from([
-                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
+                (AttrName("id".to_string()), AttrType::Primitive(PrimitiveType::String)),
                 (AttrName("name".to_string()), AttrType::Primitive(PrimitiveType::String)),
                 (AttrName("year".to_string()), AttrType::Primitive(PrimitiveType::Integer)),
                 (AttrName("actors".to_string()), AttrType::Array([PrimitiveType::String])),
@@ -445,22 +451,11 @@ mod tests {
         };
 
         let expected_result: ModelDefinition = movie_model;
-        assert_eq!(&parse_model(Path::new("./testing/model"), &ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
+        assert_eq!(&parse_model(&ModelName(AttrName("movie".to_string()))).unwrap(), &expected_result);
 
         // test errors
         assert!(
-            parse_model(Path::new("./testing/model"), &ModelName(AttrName("movie_clone".to_string()))).is_err(),
-            // test a not existing directory
-            "Expected error for parsing a valid model with duplicate model name"
-        );
-        assert!(
-            parse_model(Path::new("./testing/model/not_existing_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
-            // test a not existing directory
-            "Expected error for not existing models' path"
-        );
-        assert!(
-            parse_model(Path::new("./testing/model/dummy_dir"), &ModelName(AttrName("movie".to_string()))).is_err(),
-            // test a directory without any valid model definitions
+            parse_model(&ModelName(AttrName("not_existing_model".to_string()))).is_err(),
             "Expected error for no matching model definitions"
         );
     }

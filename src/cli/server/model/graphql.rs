@@ -1,3 +1,5 @@
+use serde::ser;
+
 // used types
 use std::collections::{
     BTreeMap,
@@ -46,19 +48,51 @@ use super::{
     delete_one
 };
 
-type RootData = BTreeMap<RootName, FieldData>;
-type FieldData = BTreeMap<FieldName, FieldValue>;
 type Errors = Vec<String>;
-type RootName = String;
 type FieldName = String;
 
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum FieldValue {
     Field(TrueType),
-    Resolver(FieldData)
+    Resolver(Data)
 }
 
+#[derive(Debug)]
+pub struct Data {
+    map: BTreeMap<FieldName, FieldValue>
+}
+
+impl Data {
+    fn new() -> Self {
+        Self {
+            map: BTreeMap::new()
+        }
+    }
+    fn insert(&mut self, key: FieldName, value: FieldValue) {
+        let mut key_with_index = format!("{}_", self.map.len());
+        key_with_index.push_str(&key);
+        self.map.insert(key_with_index, value);
+    }
+    fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+}
+
+impl ser::Serialize for Data {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        use ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.map.len()))?;
+        for (k, v) in &self.map {
+            let key_without_index = k.split_once('_').unwrap().1;
+            map.serialize_entry(key_without_index, v)?;
+        }
+        map.end()
+    }
+}
 
 
 #[derive(Serialize, Debug)]
@@ -67,7 +101,7 @@ pub struct GraphQLReturn {
     pub errors: Option<Errors>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<RootData>
+    pub data: Option<Data>
 }
 
 #[derive(Deserialize)]
@@ -140,14 +174,14 @@ pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
 fn get_executing_operation(mut operations: Vec<Operation>, operation_name: Option<String>) -> Result<Operation, GraphQLReturn> {
     match operations.len() {
         0 => Err(GraphQLReturn {
-            errors: Some(vec!("GraphQL Error: Document does not contain any operations".to_string())),
+            errors: Some(Errors::from(["GraphQL Error: Document does not contain any operations".to_string()])),
             data: None
         }),
         1 => Ok(operations.pop().unwrap()),
         _ => {
             if operation_name.is_none() {
                 return Err(GraphQLReturn {
-                    errors: Some(vec!("GraphQL Error: Document contains more than one operation, missing operation name".to_string())),
+                    errors: Some(Errors::from(["GraphQL Error: Document contains more than one operation, missing operation name".to_string()])),
                     data: None
                 });
             }
@@ -160,7 +194,7 @@ fn get_executing_operation(mut operations: Vec<Operation>, operation_name: Optio
             match operations.pop() {
                 Some(o) => Ok(o),
                 None => Err(GraphQLReturn {
-                    errors: Some(vec!(format!("GraphQL Error: Operation with name {} does not exist", operation_name.unwrap().as_str()))),
+                    errors: Some(Errors::from([format!("GraphQL Error: Operation with name {} does not exist", operation_name.unwrap().as_str())])),
                     data: None
                 })
             }
@@ -169,7 +203,7 @@ fn get_executing_operation(mut operations: Vec<Operation>, operation_name: Optio
 }
 
 fn execute_operation(operation: Operation) -> GraphQLReturn {
-    let mut data = RootData::new();
+    let mut data = Data::new();
     let mut errors = Errors::new();
     for root_resolver in operation.selection_set().unwrap().selections() {
         let field: Field = match root_resolver {
@@ -266,7 +300,7 @@ fn execute_operation(operation: Operation) -> GraphQLReturn {
         match record {
             Ok(record) => {
                 match resolve_fields(&field, record) {
-                    Ok(resolved) => { data.insert(resolved_field_name, resolved); },
+                    Ok(resolved) => data.insert(resolved_field_name, FieldValue::Resolver(resolved)),
                     Err(mut errs) => errors.append(&mut errs)
                 };
             },
@@ -292,11 +326,11 @@ fn execute_operation(operation: Operation) -> GraphQLReturn {
     }
 }
 
-fn resolve_fields(field: &Field, record: Record) -> Result<FieldData, Errors> {
-    let mut data = FieldData::new();
+fn resolve_fields(field: &Field, record: Record) -> Result<Data, Errors> {
+    let mut data = Data::new();
     let selections: CstChildren<Selection> = match field.selection_set() {
         Some(selections) => selections.selections(),
-        None => return Err(vec!("must have a selection of subfields".to_string()))
+        None => return Err(Errors::from(["must have a selection of subfields".to_string()]))
     };
     for sel in selections {
         match sel {
@@ -305,7 +339,7 @@ fn resolve_fields(field: &Field, record: Record) -> Result<FieldData, Errors> {
                     let attr_name = AttrName(field.name().unwrap().source_string());
                     let value: TrueType = match record.get(&attr_name) {
                         Some(val) => val.clone(),
-                        None => return Err(vec!("invalid selections".to_string()))
+                        None => return Err(Errors::from(["invalid selections".to_string()]))
                     };
                     let resolved_field_name: String = match field.alias() {
                         Some(alias) => alias.name().unwrap().source_string(),
@@ -328,7 +362,7 @@ fn resolve_fields(field: &Field, record: Record) -> Result<FieldData, Errors> {
 fn get_arguments(field: &Field, mut required_args: Vec<(&AttrName, &AttrType)>, mut optional_args: Vec<(&AttrName, &AttrType)>) -> Result<CstChildren<Argument>, Errors> {
     let args: CstChildren<Argument> = match field.arguments() {
         Some(args) => args.arguments(),
-        None => return Err(vec!("missing arguments".to_string()))
+        None => return Err(Errors::from(["missing arguments".to_string()]))
     };
 
     for arg in args {
@@ -337,12 +371,12 @@ fn get_arguments(field: &Field, mut required_args: Vec<(&AttrName, &AttrType)>, 
         required_args.retain(|a| a.0.0 != name);
         optional_args.retain(|a| a.0.0 != name);
         if required_args.len() + optional_args.len() == possible_args {
-            return Err(vec!(format!("unknown argument \"{name}\"")))
+            return Err(Errors::from([format!("unknown argument \"{name}\"")]))
         }
     }
 
     if !required_args.is_empty() {
-        return Err(vec!("missing required argument".to_string()));
+        return Err(Errors::from(["missing required argument".to_string()]));
     }
 
     Ok(field.arguments().unwrap().arguments())

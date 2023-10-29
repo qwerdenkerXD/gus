@@ -1,10 +1,7 @@
 use serde::ser;
 
 // used types
-use std::collections::{
-    BTreeMap,
-    HashMap
-};
+use std::collections::HashMap;
 use super::{
     ModelDefinition,
     ModelName,
@@ -51,28 +48,23 @@ use super::{
 type Errors = Vec<String>;
 type FieldName = String;
 
-#[derive(Serialize, Debug)]
-#[serde(untagged)]
-pub enum FieldValue {
+enum FieldValue {
     Field(TrueType),
     Resolver(Data)
 }
 
-#[derive(Debug)]
 pub struct Data {
-    map: BTreeMap<FieldName, FieldValue>
+    map: Vec<(FieldName, FieldValue)>
 }
 
 impl Data {
     fn new() -> Self {
         Self {
-            map: BTreeMap::new()
+            map: vec!()
         }
     }
     fn insert(&mut self, key: FieldName, value: FieldValue) {
-        let mut key_with_index = format!("{}_", self.map.len());
-        key_with_index.push_str(&key);
-        self.map.insert(key_with_index, value);
+        self.map.push((key, value));
     }
     fn is_empty(&self) -> bool {
         self.map.is_empty()
@@ -87,15 +79,17 @@ impl ser::Serialize for Data {
         use ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(self.map.len()))?;
         for (k, v) in &self.map {
-            let key_without_index = k.split_once('_').unwrap().1;
-            map.serialize_entry(key_without_index, v)?;
+            match v {
+                FieldValue::Field(field) => map.serialize_entry(k, field)?,
+                FieldValue::Resolver(data) => map.serialize_entry(k, data)?
+            }
         }
         map.end()
     }
 }
 
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize)]
 pub struct GraphQLReturn {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub errors: Option<Errors>,

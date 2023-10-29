@@ -11,7 +11,6 @@ pub use types::*;
 use storage_handler::*;
 
 // used types
-pub use storage_handler::StorageType;
 pub use graphql::GraphQLReturn;
 use std::collections::HashMap;
 use graphql::GraphQLPost;

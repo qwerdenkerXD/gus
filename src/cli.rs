@@ -5,7 +5,7 @@ pub use index::*;
 use server::model::model_cli::create_model;
 use server::model::configure_storages;
 
-pub fn run() -> Option<impl futures::Future<Output = Result<(), std::io::Error>>> {
+pub fn run() -> Option<impl std::future::Future<Output = Result<(), std::io::Error>>> {
     let cli: Result<Cli, ClapError> = get_validated_args();
     if let Err(err) = cli {
         if err.print().is_err() {

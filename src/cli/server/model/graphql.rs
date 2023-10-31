@@ -6,6 +6,9 @@ use apollo_compiler::diagnostics::GraphQLError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use super::{
+    ModelDefinition,
+    PrimitiveType,
+    AttrType,
     AttrName,
     TrueType,
     Record
@@ -33,6 +36,7 @@ use apollo_compiler::hir::{
 // used functions
 use serde_json::from_str;
 use super::{
+    parse_models,
     create_one,
     read_one,
     update_one,
@@ -154,7 +158,70 @@ impl TryFrom<&str> for GraphQLPost {
 }
 
 fn create_schema() -> String {
-    "type Query {readOneMovie(id: String): Movie} type Movie {id: String! name: String! actors: [String] recommended: Boolean!}".to_string()
+    if let Some(args) = crate::cli::get_valid_start_args() {
+        let mut type_definitions: String = String::new();
+        let mut query_resolvers: Vec<String> = vec!();
+        let mut mutation_resolvers: Vec<String> = vec!();
+        let mut subscription_resolvers: Vec<String> = vec!();
+
+        let models: Vec<ModelDefinition> = match parse_models(args.modelspath.as_path()) {
+            Ok(models) => models,
+            Err(_) => return String::new()
+        };
+
+        for model in models {
+            let pasc_sing_model_name: &str = &model.model_name.pascal().singular().0.0;
+
+            let mut type_def: String = format!("type {} {{", pasc_sing_model_name);
+            let mut update_one: String = format!(" updateOne{pasc_sing_model_name}(");
+            let mut create_one: String = format!(" createOne{pasc_sing_model_name}(");
+            for (attr_name, attr_type) in model.attributes {
+                let gql_type = match attr_type {
+                    AttrType::Primitive(prim) => to_gql_type(&prim),
+                    AttrType::Array(arr) => format!("[{}]", to_gql_type(&arr[0])),
+                };
+                let attr: &str = attr_name.0.as_str();
+                let attr_ty: &str = gql_type.as_str();
+                
+                update_one.push_str(format!(" {attr}:{attr_ty}").as_str());
+                create_one.push_str(format!(" {attr}:{attr_ty}").as_str());
+
+                if model.primary_key == attr_name {
+                    query_resolvers.push(format!(" readOne{pasc_sing_model_name}({attr}:{attr_ty}!):{pasc_sing_model_name}!"));
+                    mutation_resolvers.push(format!(" deleteOne{pasc_sing_model_name}({attr}:{attr_ty}!):{pasc_sing_model_name}!"));
+                    update_one.push('!');
+                }
+                if model.required.contains(&attr_name) {
+                    create_one.push('!');
+                }
+                type_def.push_str(format!(" {attr}:{attr_ty}").as_str());
+            }
+            query_resolvers.push(format!("{}):{pasc_sing_model_name}!", update_one.as_str()));
+            query_resolvers.push(format!("{}):{pasc_sing_model_name}!", create_one.as_str()));
+            type_def.push('}');
+            type_definitions.push_str(type_def.as_str());
+        }
+
+        if !query_resolvers.is_empty() {
+            type_definitions.push_str(format!("type Query{{{}}}", query_resolvers.join(" ").as_str()).as_str());
+        }
+        if !mutation_resolvers.is_empty() {
+            type_definitions.push_str(format!("type Mutation{{{}}}", mutation_resolvers.join(" ").as_str()).as_str());
+        }
+        if !subscription_resolvers.is_empty() {
+            type_definitions.push_str(format!("type Subscription{{{}}}", subscription_resolvers.join(" ").as_str()).as_str());
+        }
+        return type_definitions;
+    }
+    unreachable!("creating GraphQL schemas is only used for handling HTTP requests, so when the server runs")
+}
+
+fn to_gql_type(prim_type: &PrimitiveType) -> String {
+    match prim_type {
+        PrimitiveType::Integer => "Int".to_string(),
+        PrimitiveType::String => "String".to_string(),
+        PrimitiveType::Boolean => "Boolean".to_string()
+    }
 }
 
 pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
@@ -200,7 +267,7 @@ fn execute_operation(operation: Arc<Operation>) -> GraphQLReturn {
             Selection::FragmentSpread(_) => todo!(),
             Selection::InlineFragment(_) => todo!()
         };
-        let resolver_name: &str = &field.name();
+        let resolver_name: &str = field.name();
         let prefix: &str = match operation.operation_ty() {
             OperationType::Query => {
                 if resolver_name.starts_with("readOne") {
@@ -222,22 +289,22 @@ fn execute_operation(operation: Arc<Operation>) -> GraphQLReturn {
         };
 
         let args: HashMap<&str, String> = HashMap::from_iter(
-            field.arguments().iter().map(|arg| (arg.name(), value_to_str(&arg.value())) )
+            field.arguments().iter().map(|arg| (arg.name(), value_to_str(arg.value())) )
         );
 
         let record: Result<Record, std::io::Error> = match prefix {
             "readOne" => {
                 let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-                let id: &str = &args.values().next().unwrap();
+                let id: &str = args.values().next().unwrap();
                 read_one(model_name, id)
             },
-            "deleteOne" => delete_one(resolver_name.strip_prefix(prefix).unwrap(), &args.values().next().unwrap()),
+            "deleteOne" => delete_one(resolver_name.strip_prefix(prefix).unwrap(), args.values().next().unwrap()),
             _ => todo!(),
         };
 
         match record {
             Ok(record) => {
-                match resolve_fields(&field, record) {
+                match resolve_fields(field, record) {
                     Ok(resolved) => data.insert(field.response_name().to_string(), FieldValue::Resolver(resolved)),
                     Err(mut errs) => errors.append(&mut errs)
                 };
@@ -267,7 +334,7 @@ fn value_to_str(value: &Value) -> String {
         Value::String { value, .. } => value.to_string(),
         Value::Boolean { value, .. } => value.to_string(),
         Value::Null { .. } => "null".to_string(),
-        Value::List { value, .. } => format!("[{}]", value.iter().map(|val| value_to_str(val)).collect::<Vec<String>>().join(", ")),
+        Value::List { value, .. } => format!("[{}]", value.iter().map(value_to_str).collect::<Vec<String>>().join(", ")),
         _ => todo!()
     }
 }

@@ -65,6 +65,20 @@ pub enum TruePrimitiveType {
     Null(Option<()>)
 }
 
+impl TrueType {
+    pub fn to_string(&self) -> String {
+        match self {
+            TrueType::Array(arr) => format!("{:?}", arr.iter().map(|p| TrueType::Primitive(p.clone()).to_string()).collect::<Vec<String>>()),
+            TrueType::Primitive(prim) => match prim {
+                TruePrimitiveType::String(string) => string.clone(),
+                TruePrimitiveType::Integer(val) => format!("{}", val),
+                TruePrimitiveType::Boolean(val) => format!("{}", val),
+                TruePrimitiveType::Null(val) => "null".to_string()
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub enum Constraints {
     Integer(IntConstraint),

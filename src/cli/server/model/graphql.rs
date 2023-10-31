@@ -6,6 +6,7 @@ use apollo_compiler::diagnostics::GraphQLError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use super::{
+    TruePrimitiveType,
     ModelDefinition,
     PrimitiveType,
     AttrType,
@@ -174,7 +175,7 @@ fn create_schema() -> String {
 
             let mut type_def: String = format!("type {} {{", pasc_sing_model_name);
             let mut update_one: String = format!(" updateOne{pasc_sing_model_name}(");
-            let mut create_one: String = format!(" createOne{pasc_sing_model_name}(");
+            let mut create_one: String = format!(" addOne{pasc_sing_model_name}(");
             for (attr_name, attr_type) in model.attributes {
                 let gql_type = match attr_type {
                     AttrType::Primitive(prim) => to_gql_type(&prim),
@@ -196,8 +197,8 @@ fn create_schema() -> String {
                 }
                 type_def.push_str(format!(" {attr}:{attr_ty}").as_str());
             }
-            query_resolvers.push(format!("{}):{pasc_sing_model_name}!", update_one.as_str()));
-            query_resolvers.push(format!("{}):{pasc_sing_model_name}!", create_one.as_str()));
+            mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", update_one.as_str()));
+            mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", create_one.as_str()));
             type_def.push('}');
             type_definitions.push_str(type_def.as_str());
         }
@@ -232,15 +233,15 @@ pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
     if !validated.is_empty() {
         return GraphQLReturn::from(validated.iter().map(|d| d.to_json()).collect::<Errors>());
     }
-    let exec_operation: Arc<Operation> = match get_executing_operation(compiler.db, body.operationName, query_key) {
+    let exec_operation: Arc<Operation> = match get_executing_operation(&compiler.db, body.operationName, query_key) {
         Ok(op) => op,
         Err(ret) => return ret
     };
 
-    execute_operation(exec_operation)
+    execute_operation(exec_operation, &compiler.db)
 }
 
-fn get_executing_operation(db: impl HirDatabase, operation_name: Option<String>, db_key: FileId) -> Result<Arc<Operation>, GraphQLReturn> {
+fn get_executing_operation(db: &impl HirDatabase, operation_name: Option<String>, db_key: FileId) -> Result<Arc<Operation>, GraphQLReturn> {
     let operations: Arc<Vec<Arc<Operation>>> = db.all_operations();
     match operations.len() {
         0 => Err(GraphQLReturn::from("document does not contain any executable operations")),
@@ -258,7 +259,7 @@ fn get_executing_operation(db: impl HirDatabase, operation_name: Option<String>,
     }
 }
 
-fn execute_operation(operation: Arc<Operation>) -> GraphQLReturn {
+fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQLReturn {
     let mut data = Data::new();
     let mut errors = Errors::new();
     for root_resolver in operation.selection_set().selection() {
@@ -288,18 +289,33 @@ fn execute_operation(operation: Arc<Operation>) -> GraphQLReturn {
             OperationType::Subscription => todo!(),
         };
 
-        let args: HashMap<&str, String> = HashMap::from_iter(
-            field.arguments().iter().map(|arg| (arg.name(), value_to_str(arg.value())) )
+        let args: HashMap<&str, TrueType> = HashMap::from_iter(
+            field.arguments().iter().map(|arg| (arg.name(), value_to_truetype(arg.value())) )
         );
 
         let record: Result<Record, std::io::Error> = match prefix {
+            "addOne" => create_one(resolver_name.strip_prefix(prefix).unwrap(), serde_json::to_string(&args).unwrap().as_str()),
             "readOne" => {
                 let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-                let id: &str = args.values().next().unwrap();
+                let id: &str = &args.values().next().unwrap().to_string();
                 read_one(model_name, id)
             },
-            "deleteOne" => delete_one(resolver_name.strip_prefix(prefix).unwrap(), args.values().next().unwrap()),
-            _ => todo!(),
+            "updateOne" => {
+                let id_attr_name: &str = &field.field_definition(db).unwrap()
+                                               .arguments()
+                                               .input_values()
+                                               .into_iter()
+                                               .find(|arg| arg.ty().is_non_null()).unwrap()
+                                               .name().to_string();
+                update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
+            },
+            "deleteOne" => {
+                let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
+                let id: &str = &args.values().next().unwrap().to_string();
+                delete_one(model_name, id)
+            },
+            "" => todo!(),
+            _ => unreachable!("there are currently only five root resolver types")
         };
 
         match record {
@@ -328,13 +344,20 @@ fn execute_operation(operation: Arc<Operation>) -> GraphQLReturn {
     }
 }
 
-fn value_to_str(value: &Value) -> String {
+fn value_to_truetype(value: &Value) -> TrueType {
     match value {
-        Value::Variable(var) => var.name().to_string(),
-        Value::String { value, .. } => value.to_string(),
-        Value::Boolean { value, .. } => value.to_string(),
-        Value::Null { .. } => "null".to_string(),
-        Value::List { value, .. } => format!("[{}]", value.iter().map(value_to_str).collect::<Vec<String>>().join(", ")),
+        Value::Variable(var) => todo!("resolve variable"),
+        Value::String { value, .. } => TrueType::Primitive(TruePrimitiveType::String(value.clone())),
+        Value::Boolean { value, .. } => TrueType::Primitive(TruePrimitiveType::Boolean(*value)),
+        Value::Null { .. } => TrueType::Primitive(TruePrimitiveType::Null(None)),
+        Value::List { value, .. } => TrueType::Array(value.iter()
+                                                          .map(|val| {
+                                                              if let TrueType::Primitive(v) = value_to_truetype(val) {
+                                                                  return v;
+                                                              }
+                                                              unreachable!("arrays store TruePrimitiveType items")
+                                                          })
+                                                          .collect::<Vec<TruePrimitiveType>>()),
         _ => todo!()
     }
 }

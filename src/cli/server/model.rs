@@ -265,7 +265,13 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                             }
                             record.insert(key, TrueType::Array(true_arr));
                         },
-                        None => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: Array", key.0)))
+                        None => {
+                            if !is_required && value.is_null() {
+                                record.insert(key, TrueType::Primitive(TruePrimitiveType::Null(None)));
+                            } else {
+                                return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: Array", key.0)));
+                            }
+                        }
                     };
                 },
             }

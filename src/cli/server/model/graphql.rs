@@ -179,7 +179,7 @@ fn create_schema() -> String {
             for (attr_name, attr_type) in model.attributes {
                 let gql_type = match attr_type {
                     AttrType::Primitive(prim) => to_gql_type(&prim),
-                    AttrType::Array(arr) => format!("[{}]", to_gql_type(&arr[0])),
+                    AttrType::Array(arr) => format!("[{}!]", to_gql_type(&arr[0])),
                 };
                 let attr: &str = attr_name.0.as_str();
                 let attr_ty: &str = gql_type.as_str();
@@ -212,6 +212,7 @@ fn create_schema() -> String {
         if !subscription_resolvers.is_empty() {
             type_definitions.push_str(format!("type Subscription{{{}}}", subscription_resolvers.join(" ").as_str()).as_str());
         }
+
         return type_definitions;
     }
     unreachable!("creating GraphQL schemas is only used for handling HTTP requests, so when the server runs")

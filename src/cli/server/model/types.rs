@@ -73,7 +73,7 @@ impl TrueType {
                 TruePrimitiveType::String(string) => string.clone(),
                 TruePrimitiveType::Integer(val) => format!("{}", val),
                 TruePrimitiveType::Boolean(val) => format!("{}", val),
-                TruePrimitiveType::Null(val) => "null".to_string()
+                TruePrimitiveType::Null(_) => "null".to_string()
             }
         }
     }

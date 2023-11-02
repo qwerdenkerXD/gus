@@ -30,6 +30,7 @@ use cruet::string::{
     pluralize::to_plural as pluralize
 };
 
+pub const NULL: TrueType = TrueType::Primitive(None);
 pub type Record = HashMap<AttrName, TrueType>;
 pub type Attributes = HashMap<AttrName, AttrType>;
 
@@ -51,8 +52,8 @@ pub enum PrimitiveType {
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 #[serde(untagged)]
 pub enum TrueType {
-    Primitive(TruePrimitiveType),
-    Array(Vec<TruePrimitiveType>)
+    Primitive(Option<TruePrimitiveType>),
+    Array(Option<Vec<TruePrimitiveType>>)
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -62,19 +63,18 @@ pub enum TruePrimitiveType {
     String(String),
     Boolean(bool),
     // Float(f64),
-    Null(Option<()>)
 }
 
 impl TrueType {
     pub fn to_string(&self) -> String {
         match self {
-            TrueType::Array(arr) => format!("{:?}", arr.iter().map(|p| TrueType::Primitive(p.clone()).to_string()).collect::<Vec<String>>()),
-            TrueType::Primitive(prim) => match prim {
-                TruePrimitiveType::String(string) => string.clone(),
+            TrueType::Array(Some(arr)) => format!("{:?}", arr.iter().map(|p| TrueType::Primitive(Some(p.clone())).to_string()).collect::<Vec<String>>()),
+            TrueType::Primitive(Some(prim)) => match prim {
+                TruePrimitiveType::String(string) => string.to_string(),
                 TruePrimitiveType::Integer(val) => format!("{}", val),
                 TruePrimitiveType::Boolean(val) => format!("{}", val),
-                TruePrimitiveType::Null(_) => "null".to_string()
             }
+            none => "null".to_string()
         }
     }
 }
@@ -260,30 +260,30 @@ fn validate_attr_name(name: &str) -> Result<()> {
     Err(Error::new(ErrorKind::InvalidData, "Name is not alphabetic in camelCase, PascalCase, snake_case or spinal-case"))
 }
 
-pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<TruePrimitiveType> {
+pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<Option<TruePrimitiveType>> {
     if value.as_null().is_some() {
         if *is_required {
             return Err(Error::new(ErrorKind::InvalidData, "it is required, got: null"));
         } else {
-            return Ok(TruePrimitiveType::Null(Some(())));
+            return Ok(None);
         }
     }
     match model_type {
         PrimitiveType::Integer => {
             match value.as_i64() {
-                Some(val) => Ok(TruePrimitiveType::Integer(val)),
+                Some(val) => Ok(Some(TruePrimitiveType::Integer(val))),
                 None => Err(Error::new(ErrorKind::InvalidData, "expected: Integer"))
             }
         },
         PrimitiveType::String => {
             match value.as_str() {
-                Some(val) => Ok(TruePrimitiveType::String(val.to_string())),
+                Some(val) => Ok(Some(TruePrimitiveType::String(val.to_string()))),
                 None => Err(Error::new(ErrorKind::InvalidData, "expected: String"))
             }
         },
         PrimitiveType::Boolean => {
             match value.as_bool() {
-                Some(val) => Ok(TruePrimitiveType::Boolean(val)),
+                Some(val) => Ok(Some(TruePrimitiveType::Boolean(val))),
                 None => Err(Error::new(ErrorKind::InvalidData, "expected: Boolean"))
             }
         },

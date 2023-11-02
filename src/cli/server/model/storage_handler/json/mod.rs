@@ -199,7 +199,7 @@ mod tests {
             (ModelName(AttrName("another".to_string())), HashMap::from([
                     (
                         "1".to_string(),
-                        Record::from([(AttrName("id".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1)))])
+                        Record::from([(AttrName("id".to_string()), TrueType::Primitive(Some(TruePrimitiveType::Integer(1))))])
                     )
                 ])
             ),
@@ -230,10 +230,10 @@ mod tests {
         for key in ["1", "\"1\"", "true"] {
             let record = Record::from([
                 (AttrName("id".to_string()), from_str::<TrueType>(key).unwrap()),
-                (AttrName("name".to_string()), TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
-                (AttrName("year".to_string()), TrueType::Primitive(TruePrimitiveType::Integer(1994))),
-                (AttrName("actors".to_string()), TrueType::Array(vec![TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())])),
-                (AttrName("recommended".to_string()), TrueType::Primitive(TruePrimitiveType::Boolean(true)))
+                (AttrName("name".to_string()), TrueType::Primitive(Some(TruePrimitiveType::String("Natural Born Killers".to_string())))),
+                (AttrName("year".to_string()), TrueType::Primitive(Some(TruePrimitiveType::Integer(1994)))),
+                (AttrName("actors".to_string()), TrueType::Array(Some(vec![TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())]))),
+                (AttrName("recommended".to_string()), TrueType::Primitive(Some(TruePrimitiveType::Boolean(true))))
             ]);
             assert_eq!(handler.create_one(&record).unwrap(), record, "Creating a valid new record failed");
             assert!(handler.create_one(&record).is_err(), "Created a new record with already existing id");

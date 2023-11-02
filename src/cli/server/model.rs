@@ -110,7 +110,7 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
 
     match key_type {
         AttrType::Primitive(PrimitiveType::String) => { 
-            Ok(TrueType::Primitive(TruePrimitiveType::String(id.to_string())))
+            Ok(TrueType::Primitive(Some(TruePrimitiveType::String(id.to_string()))))
         },
         AttrType::Primitive(other) => {
             if let Ok(val) = parse::<Value>(id) {
@@ -259,15 +259,15 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                             let mut true_arr: Vec<TruePrimitiveType> = vec!();
                             for val in arr {
                                 match to_true_prim_type(val, &arr_type[0], &is_required) {
-                                    Ok(true_prim_value) => true_arr.push(true_prim_value),
+                                    Ok(true_prim_value) => true_arr.push(true_prim_value.unwrap()),
                                     Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key.0, err)))
                                 };
                             }
-                            record.insert(key, TrueType::Array(true_arr));
+                            record.insert(key, TrueType::Array(Some(true_arr)));
                         },
                         None => {
                             if !is_required && value.is_null() {
-                                record.insert(key, TrueType::Primitive(TruePrimitiveType::Null(None)));
+                                record.insert(key, NULL);
                             } else {
                                 return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: Array", key.0)));
                             }
@@ -310,11 +310,11 @@ mod tests {
             }
         "#;
         let expected_record = Record::from([
-            (AttrName("id".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1))),
-            (AttrName("name".to_string()),TrueType::Primitive(TruePrimitiveType::String("Natural Born Killers".to_string()))),
-            (AttrName("year".to_string()),TrueType::Primitive(TruePrimitiveType::Integer(1994))),
-            (AttrName("actors".to_string()),TrueType::Array(vec!(TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string())))),
-            (AttrName("recommended".to_string()),TrueType::Primitive(TruePrimitiveType::Boolean(true)))
+            (AttrName("id".to_string()),TrueType::Primitive(Some(TruePrimitiveType::Integer(1)))),
+            (AttrName("name".to_string()),TrueType::Primitive(Some(TruePrimitiveType::String("Natural Born Killers".to_string())))),
+            (AttrName("year".to_string()),TrueType::Primitive(Some(TruePrimitiveType::Integer(1994)))),
+            (AttrName("actors".to_string()),TrueType::Array(Some(vec!(TruePrimitiveType::String("Woody Harrelson".to_string()), TruePrimitiveType::String("Juliette Lewis".to_string()))))),
+            (AttrName("recommended".to_string()),TrueType::Primitive(Some(TruePrimitiveType::Boolean(true))))
         ]);
 
         let movie_model = ModelDefinition {
@@ -338,6 +338,21 @@ mod tests {
         let parsed_record: Record = parse_record(valid_input, &movie_model).unwrap();
         
         assert_eq!(&parsed_record, &expected_record);
+        
+        // test null values
+        let invalid_input = r#"
+            {
+                "id": "1",
+                "name": "Natural Born Killers",
+                "year": null,
+                "actors": null,
+                "recommended": true
+            }
+        "#;
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for parsing String-Value to Integer"
+        );
 
         // test errors
         // test String instead of Integer
@@ -419,7 +434,7 @@ mod tests {
             {
                 "id": "1",
                 "name": null,
-                "year": "1994",
+                "year": 1994,
                 "actors": ["Woody Harrelson", "Juliette Lewis"],
                 "recommended": "true"
             }

@@ -11,7 +11,8 @@ use super::{
     PrimitiveType,
     AttrType,
     TrueType,
-    Record
+    Record,
+    NULL
 };
 use serde_derive::{
     Deserialize,
@@ -296,8 +297,8 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
                 (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
                 (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
                 // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
-                (FieldName::from("subscriptionType"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None)))),
-                (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!()))) // directives currently not supported, so ther are none
+                (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
+                (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
             ]);
             data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
             continue;
@@ -382,17 +383,17 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
 fn value_to_truetype(value: &Value) -> TrueType {
     match value {
         Value::Variable(_) => todo!("resolve variable"),
-        Value::String { value, .. } => TrueType::Primitive(TruePrimitiveType::String(value.clone())),
-        Value::Boolean { value, .. } => TrueType::Primitive(TruePrimitiveType::Boolean(*value)),
-        Value::Null { .. } => TrueType::Primitive(TruePrimitiveType::Null(None)),
+        Value::String { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::String(value.clone()))),
+        Value::Boolean { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::Boolean(*value))),
+        Value::Null { .. } => NULL,
         Value::List { value, .. } => TrueType::Array(value.iter()
                                                           .map(|val| {
-                                                              if let TrueType::Primitive(v) = value_to_truetype(val) {
+                                                              if let TrueType::Primitive(Some(v)) = value_to_truetype(val) {
                                                                   return v;
                                                               }
                                                               unreachable!("arrays store TruePrimitiveType items")
                                                           })
-                                                          .collect::<Vec<TruePrimitiveType>>()),
+                                                          .collect::<Vec<TruePrimitiveType>>().into()),
         _ => todo!()
     }
 }
@@ -414,7 +415,7 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
                     Some(scalar) => data.insert(FieldName::from(sel_field.response_name()), scalar),
                     None => {
                         assert_eq!(sel_field.name(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name());
-                        data.insert(FieldName::from(sel_field.name()), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(resolver_ty.name().to_string()))));
+                        data.insert(FieldName::from(sel_field.name()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.name().to_string())))));
                     }
                 }
             },
@@ -439,39 +440,39 @@ fn resolve_type_system(db: &impl HirDatabase) -> FieldValue {
 
 fn resolve_type_definition(ty_def: &TypeDefinition, db: &impl HirDatabase) -> Option<Data> {
     let mut data = Data::new();
-    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(ty_def.name().to_string()))));
+    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(ty_def.name().to_string())))));
 
     match ty_def {
         TypeDefinition::ObjectTypeDefinition(def) => {
-            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String("OBJECT".to_string()))));
+            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("OBJECT".to_string())))));
             if def.is_introspection() {
                 return None; // don't resolve unnecessarily introspection types, and also avoid stack overflow
             }
             match def.description() {
-                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(desc.to_string())))),
-                None => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))))
+                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+                None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
             }
             let fields: Vec<Data> = def.fields().map(|f| resolve_field_definition(f, db)).collect();
             data.insert(FieldName::from("fields"), FieldValue::Objects(fields));
         },
         TypeDefinition::ScalarTypeDefinition(def) => {
-            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String("SCALAR".to_string()))));
+            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("SCALAR".to_string())))));
             match def.description() {
-                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(desc.to_string())))),
-                None => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))))
+                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+                None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
             }
-            data.insert(FieldName::from("fields"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))));
+            data.insert(FieldName::from("fields"), FieldValue::Scalar(NULL));
         },
         _ => return None
     }
 
-    data.insert(FieldName::from("ofType"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None)))); // a type has no ofType if it has a TypeDefinition
+    data.insert(FieldName::from("ofType"), FieldValue::Scalar(NULL)); // a type has no ofType if it has a TypeDefinition
 
     // the following fields get default values because they are currently not used
-    data.insert(FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!())));
-    data.insert(FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!()))); // because it affects enums, not used
-    data.insert(FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!()))); // because it affects interfaces
-    data.insert(FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!()))); // because it affects input types, not used
+    data.insert(FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!().into())));
+    data.insert(FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects enums, not used
+    data.insert(FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects interfaces
+    data.insert(FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects input types, not used
 
     Some(data)
 }
@@ -480,25 +481,25 @@ fn resolve_type(ty: &Type, db: &impl HirDatabase) -> FieldValue {
     if ty.is_named() {
         return match resolve_type_definition(&ty.type_def(db).unwrap(), db) {
             Some(res) => FieldValue::Object(res),
-            None => FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None)))
+            None => FieldValue::Scalar(NULL)
         }
     }
     let mut resolved = Data::from(vec![
-        (FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None)))),
-        (FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None)))),
-        (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(vec!()))),
-        (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!()))),
-        (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!()))),
-        (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!()))),
-        (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!())))
+        (FieldName::from("name"), FieldValue::Scalar(NULL)),
+        (FieldName::from("description"), FieldValue::Scalar(NULL)),
+        (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
+        (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
+        (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
+        (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
+        (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!().into())))
     ]);
     let of_type: &Type = match ty {
         Type::NonNull { ty, .. } => {
-            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String("NON_NULL".to_string()))));
+            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("NON_NULL".to_string())))));
             ty
         },
         Type::List { ty, .. } => {
-            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String("LIST".to_string()))));
+            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("LIST".to_string())))));
             ty
         },
         Type::Named { .. } => unreachable!("handled at the beginning of this function")
@@ -510,24 +511,24 @@ fn resolve_type(ty: &Type, db: &impl HirDatabase) -> FieldValue {
 
 fn resolve_field_definition(field: &FieldDefinition, db: &impl HirDatabase) -> Data {  // __Field
     let mut data = Data::new();
-    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(field.name().to_string()))));
+    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(field.name().to_string())))));
     match field.description() {
-        Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(desc.to_string())))),
-        None => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))))
+        Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+        None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
     }
 
     let args: Vec<Data> = field.arguments().input_values().iter().map(|a| {
         let mut data = Data::from(vec![
-            (FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(a.name().to_string())))),
+            (FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(a.name().to_string()))))),
             (FieldName::from("type"), resolve_type(a.ty(), db))
         ]);
         match a.description() {
-            Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(desc.to_string())))),
-            None => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))))
+            Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+            None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
         }
         match a.default_value() {
-            Some(desc) => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(value_to_truetype(desc).to_string())))),
-            None => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))))
+            Some(desc) => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(value_to_truetype(desc).to_string()))))),
+            None => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(NULL))
         }
         data
     }).collect();
@@ -535,8 +536,8 @@ fn resolve_field_definition(field: &FieldDefinition, db: &impl HirDatabase) -> D
     data.insert(FieldName::from("args"), FieldValue::Objects(args));
 
     data.insert(FieldName::from("type"), resolve_type(field.ty(), db));
-    data.insert(FieldName::from("isDeprecated"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Boolean(false))));
-    data.insert(FieldName::from("deprecationReason"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::Null(None))));
+    data.insert(FieldName::from("isDeprecated"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::Boolean(false)))));
+    data.insert(FieldName::from("deprecationReason"), FieldValue::Scalar(NULL));
 
     data
 }

@@ -51,7 +51,7 @@ pub fn create_one(model_name: &str, json: &str) -> Result<Record> {
     name.assert_singularity()?;
     let model: ModelDefinition = parse_model(name)?;
     let storage_handler = get_handler(&model)?;
-    let record: Record = parse_record(json, &model)?;
+    let record: Record = add_null_values(parse_record(json, &model)?, &model);
     storage_handler.create_one(&record)
 }
 
@@ -61,7 +61,8 @@ pub fn read_one(model_name: &str, id: &str) -> Result<Record> {
     let model: ModelDefinition = parse_model(name)?;
     let storage_handler = get_handler(&model)?;
     let true_id: &TrueType = &parse_uri_id(id, &model)?;
-    storage_handler.read_one(true_id)
+    
+    Ok(add_null_values(storage_handler.read_one(true_id)?, &model))  // for consistency, but may not add any null value because create_one adds them before creation
 }
 
 pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
@@ -83,7 +84,8 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
     let mut valid_record: Record = parse_record(json, &model)?;
     let true_id: &TrueType = &parse_uri_id(id, &model)?;
     valid_record.insert(model.primary_key.clone(), true_id.clone());
-    storage_handler.update_one(&valid_record)
+    
+    Ok(add_null_values(storage_handler.update_one(&valid_record)?, &model))
 }
 
 pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
@@ -92,7 +94,8 @@ pub fn delete_one(model_name: &str, id: &str) -> Result<Record> {
     let model: ModelDefinition = parse_model(name)?;
     let storage_handler = get_handler(&model)?;
     let true_id: &TrueType = &parse_uri_id(id, &model)?;
-    storage_handler.delete_one(true_id)
+    
+    Ok(add_null_values(storage_handler.delete_one(true_id)?, &model))
 }
 
 
@@ -283,6 +286,15 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     check_constraints(&record)?;
 
     Ok(record)
+}
+
+fn add_null_values(mut record: Record, model: &ModelDefinition) -> Record {
+    for (attr_name, _) in &model.attributes {
+        if !record.contains_key(attr_name) {
+            record.insert(attr_name.clone(), NULL);
+        }
+    }
+    record
 }
 
 fn check_constraints(record: &Record) -> Result<()> {

@@ -292,15 +292,27 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
             Selection::InlineFragment(_) => todo!()
         };
         if field.is_introspection() {
-            let record = &mut Data::from(vec![
-                (FieldName::from("types"), resolve_type_system(db)),
-                (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
-                (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
-                // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
-                (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
-                (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
-            ]);
-            data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
+            match field.name() {
+                "__schema" => {
+                    let record = &mut Data::from(vec![
+                        (FieldName::from("types"), resolve_type_system(db)),
+                        (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
+                        (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
+                        // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
+                        (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
+                        (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
+                    ]);
+                    data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
+                },
+                "__type" => match &db.find_type_definition_by_name(field.arguments()[0].value().as_str().unwrap().to_string()) {
+                    Some(def) => match resolve_type_definition(def, db) {
+                        Some(mut res) => data.insert(FieldName::from(field.name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), &mut res, db))),
+                        None => data.insert(FieldName::from(field.name()), FieldValue::Scalar(NULL))
+                    },
+                    None => data.insert(FieldName::from(field.name()), FieldValue::Scalar(NULL))
+                },
+                _ => unreachable!("as of GraphQL documentation are there only __type and __schema as introspection fields")
+            }
             continue;
         }
         let resolver_name: &str = field.name();
@@ -336,12 +348,13 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
                 read_one(model_name, id)
             },
             "updateOne" => {
-                let field_def: FieldDefinition = field.field_definition(db).unwrap();
-                let id_attr_name: &str = field_def.arguments()
-                                                  .input_values()
-                                                  .iter()
-                                                  .find(|arg| arg.ty().is_non_null()).unwrap()
-                                                  .name();
+                // let field_def: FieldDefinition = field.field_definition(db).unwrap();
+                // let id_attr_name: &str = field_def.arguments()
+                //                                   .input_values()
+                //                                   .iter()
+                //                                   .find(|arg| arg.ty().is_non_null()).unwrap()
+                //                                   .name();
+                let id_attr_name: &str = field.arguments()[0].name();
                 update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
             },
             "deleteOne" => {

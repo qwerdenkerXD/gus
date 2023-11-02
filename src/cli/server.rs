@@ -356,7 +356,11 @@ mod tests {
         // test valid request
         let expected: Record = from_str(r#"
             {
-                "id": "get"
+                "id": "get",
+                "name": null,
+                "year": null,
+                "actors": null,
+                "recommended": null
             }
         "#).unwrap();
         let req = TestRequest::get().uri("/api/rest/movie/get")
@@ -401,7 +405,10 @@ mod tests {
         let expected: Record = from_str(r#"
             {
                 "id": "put",
-                "name": "test"
+                "name": "test",
+                "year": null,
+                "actors": null,
+                "recommended": null
             }
         "#).unwrap();
         let res_body: BodyBytes = res.into_body().try_into_bytes().unwrap();
@@ -411,7 +418,7 @@ mod tests {
         // test invalid endpoints
         for endpoint in ["/api/rest", "/api/rest/", "/api/rest/movie/", "/api/rest/movie/not_existing_record"] {
             let req = TestRequest::put().uri(endpoint)
-                                         .to_request();
+                                        .to_request();
             let res: ServiceResponse = call_service(&app, req).await;
             assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
         }
@@ -428,7 +435,11 @@ mod tests {
         // test valid request
         let expected: Record = from_str(r#"
             {
-                "id": "delete"
+                "id": "delete",
+                "name": null,
+                "year": null,
+                "actors": null,
+                "recommended": null
             }
         "#).unwrap();
         let req = TestRequest::delete().uri("/api/rest/movie/delete")

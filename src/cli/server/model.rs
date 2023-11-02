@@ -82,8 +82,8 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
 
     // parse the record again, this time with correct requirement check
     let mut valid_record: Record = parse_record(json, &model)?;
-    let true_id: &TrueType = &parse_uri_id(id, &model)?;
-    valid_record.insert(model.primary_key.clone(), true_id.clone());
+    let true_id: TrueType = parse_uri_id(id, &model)?;
+    valid_record.insert(model.primary_key.clone(), true_id);
     
     Ok(add_null_values(storage_handler.update_one(&valid_record)?, &model))
 }

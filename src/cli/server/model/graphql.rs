@@ -10,7 +10,6 @@ use super::{
     ModelDefinition,
     PrimitiveType,
     AttrType,
-    AttrName,
     TrueType,
     Record
 };
@@ -213,10 +212,11 @@ fn create_schema() -> String {
                     mutation_resolvers.push(format!(" deleteOne{pasc_sing_model_name}({attr}:{attr_ty}!):{pasc_sing_model_name}!"));
                     update_one.push('!');
                 }
+                type_def.push_str(format!(" {attr}:{attr_ty}").as_str());
                 if model.required.contains(&attr_name) {
                     create_one.push('!');
+                    type_def.push('!');
                 }
-                type_def.push_str(format!(" {attr}:{attr_ty}").as_str());
             }
             mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", update_one.as_str()));
             mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", create_one.as_str()));
@@ -412,7 +412,10 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
                         data.insert(FieldName::from(sel_field.name()), FieldValue::Object(resolved));
                     },
                     Some(scalar) => data.insert(FieldName::from(sel_field.response_name()), scalar),
-                    None => data.insert(FieldName::from("__typename"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(resolver_ty.name().to_string()))))
+                    None => {
+                        assert_eq!(sel_field.name(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name());
+                        data.insert(FieldName::from(sel_field.name()), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(resolver_ty.name().to_string()))));
+                    }
                 }
             },
             Selection::FragmentSpread(frag) => data.append(resolve_selection_set_order(frag.fragment(db).unwrap().selection_set(), resolver_ty, field_data, db)),
@@ -442,7 +445,7 @@ fn resolve_type_definition(ty_def: &TypeDefinition, db: &impl HirDatabase) -> Op
         TypeDefinition::ObjectTypeDefinition(def) => {
             data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String("OBJECT".to_string()))));
             if def.is_introspection() {
-                return None; // don't show introspection types
+                return None; // don't resolve unnecessarily introspection types, and also avoid stack overflow
             }
             match def.description() {
                 Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(TruePrimitiveType::String(desc.to_string())))),

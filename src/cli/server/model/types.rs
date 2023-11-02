@@ -200,12 +200,6 @@ impl ModelName {
     pub fn pascal(&self) -> Self {
         ModelName(AttrName(pascalize(&self.0.0)))
     }
-    pub fn assert_pascality(&self) -> Result<()> {
-        if self != &self.pascal() {
-            return Err(Error::new(ErrorKind::InvalidData, "Expected pascal cased model name, got singular variant"));
-        }
-        Ok(())
-    }
 }
 
 // define AttrName with custom Deserializer that validates REST-ful Strings

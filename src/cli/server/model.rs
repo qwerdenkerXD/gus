@@ -352,9 +352,9 @@ mod tests {
         assert_eq!(&parsed_record, &expected_record);
         
         // test null values
-        let invalid_input = r#"
+        let valid_input = r#"
             {
-                "id": "1",
+                "id": 1,
                 "name": "Natural Born Killers",
                 "year": null,
                 "actors": null,
@@ -362,8 +362,8 @@ mod tests {
             }
         "#;
         assert!(
-            parse_record(invalid_input, &movie_model).is_err(),
-            "Expected Error for parsing String-Value to Integer"
+            parse_record(valid_input, &movie_model).is_ok(),
+            "Unexpected Error for parsing null-values for non-required attributes"
         );
 
         // test errors
@@ -444,11 +444,11 @@ mod tests {
         // test null value
         let invalid_input = r#"
             {
-                "id": "1",
+                "id": 1,
                 "name": null,
                 "year": 1994,
                 "actors": ["Woody Harrelson", "Juliette Lewis"],
-                "recommended": "true"
+                "recommended": true
             }
         "#;
         assert!(

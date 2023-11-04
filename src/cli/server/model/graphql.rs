@@ -9,6 +9,7 @@ use super::{
     TruePrimitiveType,
     ModelDefinition,
     PrimitiveType,
+    AttrName,
     AttrType,
     TrueType,
     Record,
@@ -197,7 +198,18 @@ fn create_schema() -> String {
             let mut type_def: String = format!("type {} {{", pasc_sing_model_name);
             let mut update_one: String = format!(" updateOne{pasc_sing_model_name}(");
             let mut create_one: String = format!(" addOne{pasc_sing_model_name}(");
-            for (attr_name, attr_type) in model.attributes {
+
+            let mut attributes: Vec<(&AttrName, &AttrType)> = model.attributes.iter().collect::<Vec<(&AttrName, &AttrType)>>();
+            attributes.sort_by(|(a, _), (b, _)| {
+                if a == &&model.primary_key {
+                    std::cmp::Ordering::Less
+                } else if b == &&model.primary_key {
+                    std::cmp::Ordering::Greater
+                } else {
+                    a.0.cmp(&b.0)
+                }
+            });
+            for (attr_name, attr_type) in attributes {
                 let gql_type = match attr_type {
                     AttrType::Primitive(prim) => to_gql_type(&prim),
                     AttrType::Array(arr) => format!("[{}!]", to_gql_type(&arr[0])),
@@ -208,7 +220,7 @@ fn create_schema() -> String {
                 update_one.push_str(format!(" {attr}:{attr_ty}").as_str());
                 create_one.push_str(format!(" {attr}:{attr_ty}").as_str());
 
-                if model.primary_key == attr_name {
+                if &model.primary_key == attr_name {
                     query_resolvers.push(format!(" readOne{pasc_sing_model_name}({attr}:{attr_ty}!):{pasc_sing_model_name}!"));
                     mutation_resolvers.push(format!(" deleteOne{pasc_sing_model_name}({attr}:{attr_ty}!):{pasc_sing_model_name}!"));
                     update_one.push('!');

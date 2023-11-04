@@ -361,12 +361,6 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
                 read_one(model_name, id)
             },
             "updateOne" => {
-                // let field_def: FieldDefinition = field.field_definition(db).unwrap();
-                // let id_attr_name: &str = field_def.arguments()
-                //                                   .input_values()
-                //                                   .iter()
-                //                                   .find(|arg| arg.ty().is_non_null()).unwrap()
-                //                                   .name();
                 let id_attr_name: &str = field.arguments()[0].name();
                 update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
             },
@@ -420,6 +414,7 @@ fn value_to_truetype(value: &Value) -> TrueType {
                                                               unreachable!("arrays store TruePrimitiveType items")
                                                           })
                                                           .collect::<Vec<TruePrimitiveType>>().into()),
+        Value::Int { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::Integer(value.to_i32_checked().expect("GraphQL integers are i32") as i64))),
         _ => todo!()
     }
 }

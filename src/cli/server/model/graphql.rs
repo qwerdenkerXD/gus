@@ -323,7 +323,8 @@ fn execute_operation(operation: Arc<Operation>, db: &impl HirDatabase) -> GraphQ
                     },
                     None => data.insert(FieldName::from(field.name()), FieldValue::Scalar(NULL))
                 },
-                _ => unreachable!("as of GraphQL documentation are there only __type and __schema as introspection fields")
+                "__typename" => data.insert(FieldName::from(field.name()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(format!("{}", operation.operation_ty())))))),
+                _ => unreachable!("as of GraphQL documentation are there only __type, __typename and __schema as introspection fields")
             }
             continue;
         }

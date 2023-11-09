@@ -18,14 +18,11 @@ use serde_derive::{
     Serialize
 };
 use apollo_compiler::{
-    // ApolloDiagnostic as Diagnostic,
-    // ApolloCompiler as Compiler,
     ExecutableDocument,
     GraphQLError,
-    // HirDatabase,
     NodeStr,
+    Parser,
     Schema,
-    // FileId,
     Node
 };
 use apollo_compiler::executable::{
@@ -36,7 +33,6 @@ use apollo_compiler::executable::{
     Selection,
     Field,
     Value,
-    // FieldDefinition,
     Type
 };
 use apollo_compiler::schema::{
@@ -268,9 +264,9 @@ fn to_gql_type(prim_type: &PrimitiveType) -> String {
 }
 
 pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
-    // let mut compiler = Compiler::new(); //.token_limit(...).recursion_limit(...) TODO!
-    let schema = &Schema::parse(create_schema(), "schema");
-    let document = ExecutableDocument::parse(schema, &body.query, "query");
+    let mut parser = Parser::new(); //.token_limit(...).recursion_limit(...) TODO!
+    let schema: &Schema = &parser.parse_schema(create_schema(), "schema");
+    let document: &ExecutableDocument = &parser.parse_executable(schema, &body.query, "query");
 
     schema.validate().unwrap();
 
@@ -278,8 +274,8 @@ pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
         return GraphQLReturn::from(diagnostics.iter().map(|d| d.to_json()).collect::<Errors>());
     }
 
-    match get_executing_operation(&document, body.operationName) {
-        Ok(op) => execute_operation(op, schema),
+    match get_executing_operation(document, body.operationName) {
+        Ok(op) => execute_operation(op, schema, document),
         Err(ret) => ret
     }
 }
@@ -300,7 +296,7 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
     }
 }
 
-fn execute_operation(operation: &Node<Operation>, schema: &Schema) -> GraphQLReturn {
+fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &ExecutableDocument) -> GraphQLReturn {
     let mut data = Data::new();
     let mut errors = Errors::new();
     for root_resolver in &operation.selection_set.selections {
@@ -311,22 +307,22 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema) -> GraphQLRet
         };
         
         match field.name.as_str() {
-            // "__schema" => {
-            //     let record = &mut Data::from(vec![
-            //         (FieldName::from("types"), resolve_type_system(db)),
-            //         (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
-            //         (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
-            //         // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
-            //         (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
-            //         (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(Some(vec!()))) // directives currently not supported, so ther are none
-            //     ]);
-            //     data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), record)));
-            // },
+            "__schema" => {
+                let record = &mut Data::from(vec![
+                    (FieldName::from("types"), resolve_type_system(schema)),
+                    (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Query"), schema).unwrap())),
+                    (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Mutation"), schema).unwrap())),
+                    // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Subscription"), schema).unwrap())),
+                    (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
+                    (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(Some(vec!())))) // directives currently not supported, so ther are none
+                ]);
+                data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), record, document)));
+            },
             "__type" => match resolve_type_definition(&NodeStr::new(field.arguments[0].value.as_str().unwrap()), schema) {
-                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), &mut res))),
+                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), &mut res, document))),
                 None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
             },
-            "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.to_string()))))),
+            "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.default_type_name().to_string()))))),
 
             resolver_name => {
                 let prefix: &str = match operation.operation_type {
@@ -385,7 +381,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema) -> GraphQLRet
                         for (attr_name, value) in record {
                             fields.insert(attr_name.0, FieldValue::Scalar(value));
                         }
-                        data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields)));
+                        data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields, document)));
                     },
                     Err(err) => errors.append(&mut vec!(GraphQLError {
                         message: format!("{}", err),
@@ -408,48 +404,50 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema) -> GraphQLRet
     }
 }
 
-fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data) -> Data {
+fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data, document: &ExecutableDocument) -> Data {
     let mut data = Data::new();
     for sel in &selection_set.selections {
         match sel {
             Selection::Field(sel_field) => {
                 match field_data.get(&FieldName::from(sel_field.name.as_str())) {
                     Some(FieldValue::Objects(mut sub_data)) => {
-                        let resolved: Vec<Data> = sub_data.iter_mut().map(|d| resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), d)).collect();
+                        let resolved: Vec<Data> = sub_data.iter_mut().map(|d| resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), d, document)).collect();
                         data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Objects(resolved));
                     },
                     Some(FieldValue::Object(mut sub_data)) => {
-                        let resolved: Data = resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), &mut sub_data);
+                        let resolved: Data = resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), &mut sub_data, document);
                         data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Object(resolved));
                     },
                     Some(scalar) => data.insert(FieldName::from(sel_field.response_key().as_str()), scalar),
                     None => {
                         assert_eq!(sel_field.name.as_str(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name.as_str());
-                        data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.to_string())))));
+                        data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.inner_named_type().to_string())))));
                     }
                 }
             },
-            _ => todo!()
-            // Selection::FragmentSpread(frag) => data.append(resolve_selection_set_order(frag.fragment(db).unwrap().selection_set(), resolver_ty, field_data, db)),
-            // Selection::InlineFragment(frag) => data.append(resolve_selection_set_order(frag.selection_set(), resolver_ty, field_data, db))
+            Selection::FragmentSpread(frag) => data.append(resolve_selection_set_order(&document.fragments.get(&frag.fragment_name).unwrap().selection_set, resolver_ty, field_data, document)),
+            Selection::InlineFragment(frag) => data.append(resolve_selection_set_order(&frag.selection_set, resolver_ty, field_data, document))
         }
     }
 
     data
 }
 
-// fn resolve_type_system(db: &impl HirDatabase) -> FieldValue {
-//     let mut types: Vec<Data> = vec!();
-//     for ty_def in db.type_system().type_definitions_by_name.values() {
-//         if let Some(res) = resolve_type_definition(ty_def, db) {
-//             types.push(res);
-//         }
-//     }
+fn resolve_type_system(schema: &Schema) -> FieldValue {
+    let mut types: Vec<Data> = vec!();
+    for ty_def in schema.types.keys() {
+        if let Some(res) = resolve_type_definition(ty_def, schema) {
+            types.push(res);
+        }
+    }
 
-//     FieldValue::Objects(types)
-// }
+    FieldValue::Objects(types)
+}
 
 fn resolve_type_definition(ty_name: &NodeStr, schema: &Schema) -> Option<Data> {
+    if ty_name.as_str().starts_with("__") {
+        return None; // don't resolve unnecessarily introspection types
+    }
     let mut data = Data::new();
 
     let ty_def: &ExtendedType = schema.types.get(ty_name)?;
@@ -459,9 +457,6 @@ fn resolve_type_definition(ty_name: &NodeStr, schema: &Schema) -> Option<Data> {
     match ty_def {
         ExtendedType::Object(def) => {
             data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("OBJECT".to_string())))));
-            // if def.is_introspection() {
-            //     return None; // don't resolve unnecessarily introspection types, and also avoid stack overflow
-            // }
             match &def.description {
                 Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
                 None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
@@ -492,37 +487,38 @@ fn resolve_type_definition(ty_name: &NodeStr, schema: &Schema) -> Option<Data> {
 }
 
 fn resolve_type(ty: &Type, schema: &Schema) -> FieldValue {
-    todo!()}
-//     if ty.is_named() {
-//         return match resolve_type_definition(&ty.type_def(db).unwrap(), db) {
-//             Some(res) => FieldValue::Object(res),
-//             None => FieldValue::Scalar(NULL)
-//         }
-//     }
-//     let mut resolved = Data::from(vec![
-//         (FieldName::from("name"), FieldValue::Scalar(NULL)),
-//         (FieldName::from("description"), FieldValue::Scalar(NULL)),
-//         (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
-//         (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
-//         (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
-//         (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
-//         (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(Some(vec!())))
-//     ]);
-//     let of_type: &Type = match ty {
-//         Type::NonNull { ty, .. } => {
-//             resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("NON_NULL".to_string())))));
-//             ty
-//         },
-//         Type::List { ty, .. } => {
-//             resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("LIST".to_string())))));
-//             ty
-//         },
-//         Type::Named { .. } => unreachable!("handled at the beginning of this function")
-//     };
-//     resolved.insert(FieldName::from("ofType"), resolve_type(of_type, db));
+    let mut resolved = Data::from(vec![
+        (FieldName::from("name"), FieldValue::Scalar(NULL)),
+        (FieldName::from("description"), FieldValue::Scalar(NULL)),
+        (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(Some(vec!())))),
+        (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(Some(vec!())))),
+        (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(Some(vec!())))),
+        (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(Some(vec!())))),
+        (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(Some(vec!()))))
+    ]);
+    match ty {
+        Type::List(ty) => {
+            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("LIST".to_string())))));
+            resolved.insert(FieldName::from("ofType"), resolve_type(ty, schema));
+        },
+        Type::NonNullList(ty) => {
+            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("NON_NULL".to_string())))));
+            resolved.insert(FieldName::from("ofType"), resolve_type(&Type::List(ty.clone()), schema));
+        },
+        Type::NonNullNamed(name) => {
+            resolved.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("NON_NULL".to_string())))));
+            resolved.insert(FieldName::from("ofType"), resolve_type(&Type::Named(name.clone()), schema));
+        },
+        Type::Named(name) =>{
+            return match resolve_type_definition(&name, schema) {
+                Some(res) => FieldValue::Object(res),
+                None => FieldValue::Scalar(NULL)
+            }
+        }
+    };
 
-//     FieldValue::Object(resolved)
-// }
+    FieldValue::Object(resolved)
+}
 
 fn resolve_field_definition(field: &Node<FieldDefinition>, schema: &Schema) -> Data {  // __Field
     let mut data = Data::new();

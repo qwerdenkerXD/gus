@@ -23,6 +23,7 @@ use apollo_compiler::{
     ExecutableDocument,
     GraphQLError,
     // HirDatabase,
+    NodeStr,
     Schema,
     // FileId,
     Node
@@ -36,8 +37,11 @@ use apollo_compiler::executable::{
     Field,
     Value,
     // FieldDefinition,
-    // TypeDefinition,
     Type
+};
+use apollo_compiler::schema::{
+    FieldDefinition,
+    ExtendedType
 };
 
 // used functions
@@ -265,17 +269,17 @@ fn to_gql_type(prim_type: &PrimitiveType) -> String {
 
 pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
     // let mut compiler = Compiler::new(); //.token_limit(...).recursion_limit(...) TODO!
-    let schema = Schema::parse(create_schema(), "schema");
-    let document = ExecutableDocument::parse(&schema, &body.query, "query");
+    let schema = &Schema::parse(create_schema(), "schema");
+    let document = ExecutableDocument::parse(schema, &body.query, "query");
 
     schema.validate().unwrap();
 
-    if let Err(diagnostics) = document.validate(&schema) {
+    if let Err(diagnostics) = document.validate(schema) {
         return GraphQLReturn::from(diagnostics.iter().map(|d| d.to_json()).collect::<Errors>());
     }
 
     match get_executing_operation(&document, body.operationName) {
-        Ok(op) => execute_operation(op),
+        Ok(op) => execute_operation(op, schema),
         Err(ret) => ret
     }
 }
@@ -296,7 +300,7 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
     }
 }
 
-fn execute_operation(operation: &Node<Operation>) -> GraphQLReturn {
+fn execute_operation(operation: &Node<Operation>, schema: &Schema) -> GraphQLReturn {
     let mut data = Data::new();
     let mut errors = Errors::new();
     for root_resolver in &operation.selection_set.selections {
@@ -305,94 +309,90 @@ fn execute_operation(operation: &Node<Operation>) -> GraphQLReturn {
             Selection::FragmentSpread(_) => todo!(),
             Selection::InlineFragment(_) => todo!()
         };
-        // if field.is_introspection() {
-        //     match field.name.as_str() {
-        //         "__schema" => {
-        //             let record = &mut Data::from(vec![
-        //                 (FieldName::from("types"), resolve_type_system(db)),
-        //                 (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
-        //                 (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
-        //                 // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
-        //                 (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
-        //                 (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
-        //             ]);
-        //             data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
-        //         },
-        //         "__type" => match &db.find_type_definition_by_name(field.arguments()[0].value().as_str().unwrap().to_string()) {
-        //             Some(def) => match resolve_type_definition(def, db) {
-        //                 Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), &mut res, db))),
-        //                 None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
-        //             },
-        //             None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
-        //         },
-                // "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.to_string()))))),
-        //         _ => unreachable!("as of GraphQL documentation are there only __type, __typename and __schema as introspection fields")
-        //     }
-        //     continue;
-        // }
-        let resolver_name: &str = field.name.as_str();
-        let prefix: &str = match operation.operation_type {
-            OperationType::Query => {
-                if resolver_name.starts_with("readOne") {
-                    "readOne"
-                } else {
-                    ""  // readMany has no prefix because it's the plural variant of the model name
-                }
+        
+        match field.name.as_str() {
+            // "__schema" => {
+            //     let record = &mut Data::from(vec![
+            //         (FieldName::from("types"), resolve_type_system(db)),
+            //         (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
+            //         (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
+            //         // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
+            //         (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
+            //         (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(Some(vec!()))) // directives currently not supported, so ther are none
+            //     ]);
+            //     data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), record)));
+            // },
+            "__type" => match resolve_type_definition(&NodeStr::new(field.arguments[0].value.as_str().unwrap()), schema) {
+                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), &mut res))),
+                None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
             },
-            OperationType::Mutation => {
-                if resolver_name.starts_with("addOne") {
-                    "addOne"
-                } else if resolver_name.starts_with("updateOne") {
-                    "updateOne"
-                } else {
-                    "deleteOne" // operation is expected to be validated by handle_gql_post
-                }
-            },
-            OperationType::Subscription => todo!(),
-        };
+            "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.to_string()))))),
 
-        let args: HashMap<&str, TrueType> = HashMap::from_iter(
-            field.arguments.iter().map(|arg| {
-                if let Some(arr) = arg.value.as_list() {
-                    (arg.name.as_str(), TrueType::Array(Some(arr.iter().map(|a| from_str::<TruePrimitiveType>(&a.to_string()).unwrap()).collect::<Vec<TruePrimitiveType>>())))
-                } else {
-                    (arg.name.as_str(), from_str::<TrueType>(&arg.value.to_string()).unwrap())
-                }
-            })
-        );
+            resolver_name => {
+                let prefix: &str = match operation.operation_type {
+                    OperationType::Query => {
+                        if resolver_name.starts_with("readOne") {
+                            "readOne"
+                        } else {
+                            ""  // readMany has no prefix because it's the plural variant of the model name
+                        }
+                    },
+                    OperationType::Mutation => {
+                        if resolver_name.starts_with("addOne") {
+                            "addOne"
+                        } else if resolver_name.starts_with("updateOne") {
+                            "updateOne"
+                        } else {
+                            "deleteOne" // operation is expected to be validated by handle_gql_post
+                        }
+                    },
+                    OperationType::Subscription => todo!(),
+                };
 
-        let record: Result<Record, std::io::Error> = match prefix {
-            "addOne" => create_one(resolver_name.strip_prefix(prefix).unwrap(), serde_json::to_string(&args).unwrap().as_str()),
-            "readOne" => {
-                let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-                let id: &str = &args.values().next().unwrap().to_string();
-                read_one(model_name, id)
-            },
-            "updateOne" => {
-                let id_attr_name: &str = field.arguments[0].name.as_str();
-                update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
-            },
-            "deleteOne" => {
-                let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-                let id: &str = &args.values().next().unwrap().to_string();
-                delete_one(model_name, id)
-            },
-            "" => todo!(),
-            _ => unreachable!("there are currently only five root resolver types")
-        };
+                let args: HashMap<&str, TrueType> = HashMap::from_iter(
+                    field.arguments.iter().map(|arg| {
+                        if let Some(arr) = arg.value.as_list() {
+                            (arg.name.as_str(), TrueType::Array(Some(arr.iter().map(|a| from_str::<TruePrimitiveType>(&a.to_string()).unwrap()).collect::<Vec<TruePrimitiveType>>())))
+                        } else {
+                            (arg.name.as_str(), from_str::<TrueType>(&arg.value.to_string()).unwrap())
+                        }
+                    })
+                );
 
-        match record {
-            Ok(record) => {
-                let mut fields = Data::new();
-                for (attr_name, value) in record {
-                    fields.insert(attr_name.0, FieldValue::Scalar(value));
+                let record: Result<Record, std::io::Error> = match prefix {
+                    "addOne" => create_one(resolver_name.strip_prefix(prefix).unwrap(), serde_json::to_string(&args).unwrap().as_str()),
+                    "readOne" => {
+                        let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
+                        let id: &str = &args.values().next().unwrap().to_string();
+                        read_one(model_name, id)
+                    },
+                    "updateOne" => {
+                        let id_attr_name: &str = field.arguments[0].name.as_str();
+                        update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
+                    },
+                    "deleteOne" => {
+                        let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
+                        let id: &str = &args.values().next().unwrap().to_string();
+                        delete_one(model_name, id)
+                    },
+                    "" => todo!(),
+                    _ => unreachable!("there are currently only five root resolver types")
+                };
+
+                match record {
+                    Ok(record) => {
+                        let mut fields = Data::new();
+                        for (attr_name, value) in record {
+                            fields.insert(attr_name.0, FieldValue::Scalar(value));
+                        }
+                        data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields)));
+                    },
+                    Err(err) => errors.append(&mut vec!(GraphQLError {
+                        message: format!("{}", err),
+                        locations: vec!()
+                    }))
                 }
-                data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields)));
-            },
-            Err(err) => errors.append(&mut vec!(GraphQLError {
-                message: format!("{}", err),
-                locations: vec!()
-            }))
+            }
         }
     }
 
@@ -449,46 +449,50 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
 //     FieldValue::Objects(types)
 // }
 
-// fn resolve_type_definition(ty_def: &TypeDefinition, db: &impl HirDatabase) -> Option<Data> {
-//     let mut data = Data::new();
-//     data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(ty_def.name().to_string())))));
+fn resolve_type_definition(ty_name: &NodeStr, schema: &Schema) -> Option<Data> {
+    let mut data = Data::new();
 
-//     match ty_def {
-//         TypeDefinition::ObjectTypeDefinition(def) => {
-//             data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("OBJECT".to_string())))));
-//             if def.is_introspection() {
-//                 return None; // don't resolve unnecessarily introspection types, and also avoid stack overflow
-//             }
-//             match def.description() {
-//                 Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
-//                 None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
-//             }
-//             let fields: Vec<Data> = def.fields().map(|f| resolve_field_definition(f, db)).collect();
-//             data.insert(FieldName::from("fields"), FieldValue::Objects(fields));
-//         },
-//         TypeDefinition::ScalarTypeDefinition(def) => {
-//             data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("SCALAR".to_string())))));
-//             match def.description() {
-//                 Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
-//                 None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
-//             }
-//             data.insert(FieldName::from("fields"), FieldValue::Scalar(NULL));
-//         },
-//         _ => return None
-//     }
+    let ty_def: &ExtendedType = schema.types.get(ty_name)?;
+    
+    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(ty_name.to_string())))));
 
-//     data.insert(FieldName::from("ofType"), FieldValue::Scalar(NULL)); // a type has no ofType if it has a TypeDefinition
+    match ty_def {
+        ExtendedType::Object(def) => {
+            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("OBJECT".to_string())))));
+            // if def.is_introspection() {
+            //     return None; // don't resolve unnecessarily introspection types, and also avoid stack overflow
+            // }
+            match &def.description {
+                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+                None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
+            }
+            let fields: Vec<Data> = def.fields.values().map(|f| resolve_field_definition(&f.node, schema)).collect();
+            data.insert(FieldName::from("fields"), FieldValue::Objects(fields));
+        },
+        ExtendedType::Scalar(def) => {
+            data.insert(FieldName::from("kind"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String("SCALAR".to_string())))));
+            match &def.description {
+                Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+                None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
+            }
+            data.insert(FieldName::from("fields"), FieldValue::Scalar(NULL));
+        },
+        _ => return None
+    }
 
-//     // the following fields get default values because they are currently not used
-//     data.insert(FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!().into())));
-//     data.insert(FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects enums, not used
-//     data.insert(FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects interfaces
-//     data.insert(FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!().into()))); // because it affects input types, not used
+    data.insert(FieldName::from("ofType"), FieldValue::Scalar(NULL)); // a type has no ofType if it has a TypeDefinition
 
-//     Some(data)
-// }
+    // the following fields get default values because they are currently not used
+    data.insert(FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(Some(vec!()))));
+    data.insert(FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(Some(vec!())))); // because it affects enums, not used
+    data.insert(FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(Some(vec!())))); // because it affects interfaces
+    data.insert(FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(Some(vec!())))); // because it affects input types, not used
 
-// fn resolve_type(ty: &Type, db: &impl HirDatabase) -> FieldValue {
+    Some(data)
+}
+
+fn resolve_type(ty: &Type, schema: &Schema) -> FieldValue {
+    todo!()}
 //     if ty.is_named() {
 //         return match resolve_type_definition(&ty.type_def(db).unwrap(), db) {
 //             Some(res) => FieldValue::Object(res),
@@ -498,11 +502,11 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
 //     let mut resolved = Data::from(vec![
 //         (FieldName::from("name"), FieldValue::Scalar(NULL)),
 //         (FieldName::from("description"), FieldValue::Scalar(NULL)),
-//         (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
-//         (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
-//         (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
-//         (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(vec!().into()))),
-//         (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(vec!().into())))
+//         (FieldName::from("fields"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
+//         (FieldName::from("interfaces"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
+//         (FieldName::from("possibleTypes"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
+//         (FieldName::from("enumValues"), FieldValue::Scalar(TrueType::Array(Some(vec!()))),
+//         (FieldName::from("inputFields"), FieldValue::Scalar(TrueType::Array(Some(vec!())))
 //     ]);
 //     let of_type: &Type = match ty {
 //         Type::NonNull { ty, .. } => {
@@ -520,35 +524,35 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
 //     FieldValue::Object(resolved)
 // }
 
-// fn resolve_field_definition(field: &FieldDefinition, db: &impl HirDatabase) -> Data {  // __Field
-//     let mut data = Data::new();
-//     data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(field.name().to_string())))));
-//     match field.description() {
-//         Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
-//         None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
-//     }
+fn resolve_field_definition(field: &Node<FieldDefinition>, schema: &Schema) -> Data {  // __Field
+    let mut data = Data::new();
+    data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(field.name.to_string())))));
+    match &field.description {
+        Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+        None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
+    }
 
-//     let args: Vec<Data> = field.arguments().input_values().iter().map(|a| {
-//         let mut data = Data::from(vec![
-//             (FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(a.name().to_string()))))),
-//             (FieldName::from("type"), resolve_type(a.ty(), db))
-//         ]);
-//         match a.description() {
-//             Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
-//             None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
-//         }
-//         match a.default_value() {
-//             Some(desc) => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(value_to_truetype(desc).to_string()))))),
-//             None => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(NULL))
-//         }
-//         data
-//     }).collect();
+    let args: Vec<Data> = field.arguments.iter().map(|a| {
+        let mut data = Data::from(vec![
+            (FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(a.name.to_string()))))),
+            (FieldName::from("type"), resolve_type(&a.ty, schema))
+        ]);
+        match &a.description {
+            Some(desc) => data.insert(FieldName::from("description"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(desc.to_string()))))),
+            None => data.insert(FieldName::from("description"), FieldValue::Scalar(NULL))
+        }
+        match &a.default_value {
+            Some(val) => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(val.to_string()))))),
+            None => data.insert(FieldName::from("defaultValue"), FieldValue::Scalar(NULL))
+        }
+        data
+    }).collect();
 
-//     data.insert(FieldName::from("args"), FieldValue::Objects(args));
+    data.insert(FieldName::from("args"), FieldValue::Objects(args));
 
-//     data.insert(FieldName::from("type"), resolve_type(field.ty(), db));
-//     data.insert(FieldName::from("isDeprecated"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::Boolean(false)))));
-//     data.insert(FieldName::from("deprecationReason"), FieldValue::Scalar(NULL));
+    data.insert(FieldName::from("type"), resolve_type(&field.ty, schema));
+    data.insert(FieldName::from("isDeprecated"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::Boolean(false)))));
+    data.insert(FieldName::from("deprecationReason"), FieldValue::Scalar(NULL));
 
-//     data
-// }
+    data
+}

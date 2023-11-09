@@ -28,20 +28,20 @@ use apollo_compiler::{
     Node
 };
 use apollo_compiler::executable::{
+    OperationType,
     OperationRef,
+    SelectionSet,
     Operation,
+    Selection,
+    Field,
+    Value,
     // FieldDefinition,
     // TypeDefinition,
-    // OperationType,
-    // SelectionSet,
-    // Selection,
-    // Field,
-    // Value,
-    // Type
+    Type
 };
 
 // used functions
-use serde_json::from_str;
+use serde_json::{from_str, to_string_pretty};
 use super::{
     parse_models,
     create_one,
@@ -214,7 +214,7 @@ fn create_schema() -> String {
             });
             for (attr_name, attr_type) in attributes {
                 let gql_type = match attr_type {
-                    AttrType::Primitive(prim) => to_gql_type(&prim),
+                    AttrType::Primitive(prim) => to_gql_type(prim),
                     AttrType::Array(arr) => format!("[{}!]", to_gql_type(&arr[0])),
                 };
                 let attr: &str = attr_name.0.as_str();
@@ -229,7 +229,7 @@ fn create_schema() -> String {
                     update_one.push('!');
                 }
                 type_def.push_str(format!(" {attr}:{attr_ty}").as_str());
-                if model.required.contains(&attr_name) {
+                if model.required.contains(attr_name) {
                     create_one.push('!');
                     type_def.push('!');
                 }
@@ -265,7 +265,7 @@ fn to_gql_type(prim_type: &PrimitiveType) -> String {
 
 pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
     // let mut compiler = Compiler::new(); //.token_limit(...).recursion_limit(...) TODO!
-    let schema = Schema::parse(&create_schema(), "schema");
+    let schema = Schema::parse(create_schema(), "schema");
     let document = ExecutableDocument::parse(&schema, &body.query, "query");
 
     schema.validate().unwrap();
@@ -292,165 +292,151 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
 
     match document.get_operation(operation_name.as_deref()) {
         Ok(o) => Ok(o.definition()),
-        Err(err) => Err(GraphQLReturn::from(format!("operation with name {:?} does not exist", operation_name.unwrap().as_str()).as_str()))
+        Err(_) => Err(GraphQLReturn::from(format!("operation with name {:?} does not exist", operation_name.unwrap().as_str()).as_str()))
     }
 }
 
 fn execute_operation(operation: &Node<Operation>) -> GraphQLReturn {
-    todo!()
+    let mut data = Data::new();
+    let mut errors = Errors::new();
+    for root_resolver in &operation.selection_set.selections {
+        let field: &Node<Field> = match root_resolver {
+            Selection::Field(field) => field,
+            Selection::FragmentSpread(_) => todo!(),
+            Selection::InlineFragment(_) => todo!()
+        };
+        // if field.is_introspection() {
+        //     match field.name.as_str() {
+        //         "__schema" => {
+        //             let record = &mut Data::from(vec![
+        //                 (FieldName::from("types"), resolve_type_system(db)),
+        //                 (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
+        //                 (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
+        //                 // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
+        //                 (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
+        //                 (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
+        //             ]);
+        //             data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
+        //         },
+        //         "__type" => match &db.find_type_definition_by_name(field.arguments()[0].value().as_str().unwrap().to_string()) {
+        //             Some(def) => match resolve_type_definition(def, db) {
+        //                 Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), &mut res, db))),
+        //                 None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
+        //             },
+        //             None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
+        //         },
+                // "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.to_string()))))),
+        //         _ => unreachable!("as of GraphQL documentation are there only __type, __typename and __schema as introspection fields")
+        //     }
+        //     continue;
+        // }
+        let resolver_name: &str = field.name.as_str();
+        let prefix: &str = match operation.operation_type {
+            OperationType::Query => {
+                if resolver_name.starts_with("readOne") {
+                    "readOne"
+                } else {
+                    ""  // readMany has no prefix because it's the plural variant of the model name
+                }
+            },
+            OperationType::Mutation => {
+                if resolver_name.starts_with("addOne") {
+                    "addOne"
+                } else if resolver_name.starts_with("updateOne") {
+                    "updateOne"
+                } else {
+                    "deleteOne" // operation is expected to be validated by handle_gql_post
+                }
+            },
+            OperationType::Subscription => todo!(),
+        };
+
+        let args: HashMap<&str, TrueType> = HashMap::from_iter(
+            field.arguments.iter().map(|arg| {
+                if let Some(arr) = arg.value.as_list() {
+                    (arg.name.as_str(), TrueType::Array(Some(arr.iter().map(|a| from_str::<TruePrimitiveType>(&a.to_string()).unwrap()).collect::<Vec<TruePrimitiveType>>())))
+                } else {
+                    (arg.name.as_str(), from_str::<TrueType>(&arg.value.to_string()).unwrap())
+                }
+            })
+        );
+
+        let record: Result<Record, std::io::Error> = match prefix {
+            "addOne" => create_one(resolver_name.strip_prefix(prefix).unwrap(), serde_json::to_string(&args).unwrap().as_str()),
+            "readOne" => {
+                let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
+                let id: &str = &args.values().next().unwrap().to_string();
+                read_one(model_name, id)
+            },
+            "updateOne" => {
+                let id_attr_name: &str = field.arguments[0].name.as_str();
+                update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
+            },
+            "deleteOne" => {
+                let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
+                let id: &str = &args.values().next().unwrap().to_string();
+                delete_one(model_name, id)
+            },
+            "" => todo!(),
+            _ => unreachable!("there are currently only five root resolver types")
+        };
+
+        match record {
+            Ok(record) => {
+                let mut fields = Data::new();
+                for (attr_name, value) in record {
+                    fields.insert(attr_name.0, FieldValue::Scalar(value));
+                }
+                data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields)));
+            },
+            Err(err) => errors.append(&mut vec!(GraphQLError {
+                message: format!("{}", err),
+                locations: vec!()
+            }))
+        }
+    }
+
+    if errors.is_empty() {
+        return GraphQLReturn::from(data);
+    } else if data.is_empty() {
+        return GraphQLReturn::from(errors);
+    }
+
+    GraphQLReturn {
+        errors: Some(errors),
+        data: Some(data)
+    }
 }
-//     let mut data = Data::new();
-//     let mut errors = Errors::new();
-//     for root_resolver in operation.selection_set().selection() {
-//         let field: &Arc<Field> = match root_resolver {
-//             Selection::Field(field) => field,
-//             Selection::FragmentSpread(_) => todo!(),
-//             Selection::InlineFragment(_) => todo!()
-//         };
-//         if field.is_introspection() {
-//             match field.name() {
-//                 "__schema" => {
-//                     let record = &mut Data::from(vec![
-//                         (FieldName::from("types"), resolve_type_system(db)),
-//                         (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Query".to_string()).unwrap(), db).unwrap())),
-//                         (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Mutation".to_string()).unwrap(), db).unwrap())),
-//                         // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&db.find_type_definition_by_name("Subscription".to_string()).unwrap(), db).unwrap())),
-//                         (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
-//                         (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(vec!().into()))) // directives currently not supported, so ther are none
-//                     ]);
-//                     data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), record, db)));
-//                 },
-//                 "__type" => match &db.find_type_definition_by_name(field.arguments()[0].value().as_str().unwrap().to_string()) {
-//                     Some(def) => match resolve_type_definition(def, db) {
-//                         Some(mut res) => data.insert(FieldName::from(field.name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), &mut res, db))),
-//                         None => data.insert(FieldName::from(field.name()), FieldValue::Scalar(NULL))
-//                     },
-//                     None => data.insert(FieldName::from(field.name()), FieldValue::Scalar(NULL))
-//                 },
-//                 "__typename" => data.insert(FieldName::from(field.name()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(format!("{}", operation.operation_ty())))))),
-//                 _ => unreachable!("as of GraphQL documentation are there only __type, __typename and __schema as introspection fields")
-//             }
-//             continue;
-//         }
-//         let resolver_name: &str = field.name();
-//         let prefix: &str = match operation.operation_ty() {
-//             OperationType::Query => {
-//                 if resolver_name.starts_with("readOne") {
-//                     "readOne"
-//                 } else {
-//                     ""  // readMany has no prefix because it's the plural variant of the model name
-//                 }
-//             },
-//             OperationType::Mutation => {
-//                 if resolver_name.starts_with("addOne") {
-//                     "addOne"
-//                 } else if resolver_name.starts_with("updateOne") {
-//                     "updateOne"
-//                 } else {
-//                     "deleteOne" // operation is expected to be validated by handle_gql_post
-//                 }
-//             },
-//             OperationType::Subscription => todo!(),
-//         };
 
-//         let args: HashMap<&str, TrueType> = HashMap::from_iter(
-//             field.arguments().iter().map(|arg| (arg.name(), value_to_truetype(arg.value())) )
-//         );
+fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data) -> Data {
+    let mut data = Data::new();
+    for sel in &selection_set.selections {
+        match sel {
+            Selection::Field(sel_field) => {
+                match field_data.get(&FieldName::from(sel_field.name.as_str())) {
+                    Some(FieldValue::Objects(mut sub_data)) => {
+                        let resolved: Vec<Data> = sub_data.iter_mut().map(|d| resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), d)).collect();
+                        data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Objects(resolved));
+                    },
+                    Some(FieldValue::Object(mut sub_data)) => {
+                        let resolved: Data = resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), &mut sub_data);
+                        data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Object(resolved));
+                    },
+                    Some(scalar) => data.insert(FieldName::from(sel_field.response_key().as_str()), scalar),
+                    None => {
+                        assert_eq!(sel_field.name.as_str(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name.as_str());
+                        data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.to_string())))));
+                    }
+                }
+            },
+            _ => todo!()
+            // Selection::FragmentSpread(frag) => data.append(resolve_selection_set_order(frag.fragment(db).unwrap().selection_set(), resolver_ty, field_data, db)),
+            // Selection::InlineFragment(frag) => data.append(resolve_selection_set_order(frag.selection_set(), resolver_ty, field_data, db))
+        }
+    }
 
-//         let record: Result<Record, std::io::Error> = match prefix {
-//             "addOne" => create_one(resolver_name.strip_prefix(prefix).unwrap(), serde_json::to_string(&args).unwrap().as_str()),
-//             "readOne" => {
-//                 let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-//                 let id: &str = &args.values().next().unwrap().to_string();
-//                 read_one(model_name, id)
-//             },
-//             "updateOne" => {
-//                 let id_attr_name: &str = field.arguments()[0].name();
-//                 update_one(resolver_name.strip_prefix(prefix).unwrap(), &args.get(id_attr_name).unwrap().to_string(), serde_json::to_string(&args).unwrap().as_str())
-//             },
-//             "deleteOne" => {
-//                 let model_name: &str = resolver_name.strip_prefix(prefix).unwrap();
-//                 let id: &str = &args.values().next().unwrap().to_string();
-//                 delete_one(model_name, id)
-//             },
-//             "" => todo!(),
-//             _ => unreachable!("there are currently only five root resolver types")
-//         };
-
-//         match record {
-//             Ok(record) => {
-//                 let mut fields = Data::new();
-//                 for (attr_name, value) in record {
-//                     fields.insert(attr_name.0, FieldValue::Scalar(value));
-//                 }
-//                 data.insert(FieldName::from(field.response_name()), FieldValue::Object(resolve_selection_set_order(field.selection_set(), &field.ty(db).unwrap(), &mut fields, db)));
-//             },
-//             Err(err) => errors.append(&mut vec!(GraphQLError {
-//                 message: format!("{}", err),
-//                 locations: vec!()
-//             }))
-//         }
-//     }
-
-//     if errors.is_empty() {
-//         return GraphQLReturn::from(data);
-//     } else if data.is_empty() {
-//         return GraphQLReturn::from(errors);
-//     }
-
-//     GraphQLReturn {
-//         errors: Some(errors),
-//         data: Some(data)
-//     }
-// }
-
-// fn value_to_truetype(value: &Value) -> TrueType {
-//     match value {
-//         Value::Variable(_) => todo!("resolve variable"),
-//         Value::String { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::String(value.clone()))),
-//         Value::Boolean { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::Boolean(*value))),
-//         Value::Null { .. } => NULL,
-//         Value::List { value, .. } => TrueType::Array(value.iter()
-//                                                           .map(|val| {
-//                                                               if let TrueType::Primitive(Some(v)) = value_to_truetype(val) {
-//                                                                   return v;
-//                                                               }
-//                                                               unreachable!("arrays store TruePrimitiveType items")
-//                                                           })
-//                                                           .collect::<Vec<TruePrimitiveType>>().into()),
-//         Value::Int { value, .. } => TrueType::Primitive(Some(TruePrimitiveType::Integer(value.to_i32_checked().expect("GraphQL integers are i32") as i64))),
-//         _ => todo!()
-//     }
-// }
-
-// fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data, db: &impl HirDatabase) -> Data {
-//     let mut data = Data::new();
-//     for sel in selection_set.selection() {
-//         match sel {
-//             Selection::Field(sel_field) => {
-//                 match field_data.get(&FieldName::from(sel_field.name())) {
-//                     Some(FieldValue::Objects(mut sub_data)) => {
-//                         let resolved: Vec<Data> = sub_data.iter_mut().map(|d| resolve_selection_set_order(sel_field.selection_set(), &sel_field.ty(db).unwrap(), d, db)).collect();
-//                         data.insert(FieldName::from(sel_field.name()), FieldValue::Objects(resolved));
-//                     },
-//                     Some(FieldValue::Object(mut sub_data)) => {
-//                         let resolved: Data = resolve_selection_set_order(sel_field.selection_set(), &sel_field.ty(db).unwrap(), &mut sub_data, db);
-//                         data.insert(FieldName::from(sel_field.name()), FieldValue::Object(resolved));
-//                     },
-//                     Some(scalar) => data.insert(FieldName::from(sel_field.response_name()), scalar),
-//                     None => {
-//                         assert_eq!(sel_field.name(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name());
-//                         data.insert(FieldName::from(sel_field.name()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.name().to_string())))));
-//                     }
-//                 }
-//             },
-//             Selection::FragmentSpread(frag) => data.append(resolve_selection_set_order(frag.fragment(db).unwrap().selection_set(), resolver_ty, field_data, db)),
-//             Selection::InlineFragment(frag) => data.append(resolve_selection_set_order(frag.selection_set(), resolver_ty, field_data, db))
-//         }
-//     }
-
-//     data
-// }
+    data
+}
 
 // fn resolve_type_system(db: &impl HirDatabase) -> FieldValue {
 //     let mut types: Vec<Data> = vec!();

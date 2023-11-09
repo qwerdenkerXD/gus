@@ -11,7 +11,8 @@ exclude = ["./react_app/*"]
 
 [dependencies]
 actix-web = "4.4.0"
-apollo-compiler = "0.11.3"
+#apollo-compiler = "0.11.3"
+apollo-compiler = { git = "https://github.com/apollographql/apollo-rs.git", tag = "apollo-compiler@1.0.0-beta.5"}
 clap = { version = "4.4.3", features = ["derive"] }
 cruet = "0.13.3"
 dialoguer = "0.10.4"

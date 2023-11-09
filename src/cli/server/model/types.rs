@@ -260,9 +260,9 @@ fn validate_attr_name(name: &str) -> Result<()> {
     Err(Error::new(ErrorKind::InvalidData, "Name is not alphabetic in camelCase, PascalCase, snake_case or spinal-case"))
 }
 
-pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: &bool) -> Result<Option<TruePrimitiveType>> {
+pub fn to_true_prim_type(value: &Value, model_type: &PrimitiveType, is_required: bool) -> Result<Option<TruePrimitiveType>> {
     if value.as_null().is_some() {
-        if *is_required {
+        if is_required {
             return Err(Error::new(ErrorKind::InvalidData, "it is required, got: null"));
         } else {
             return Ok(None);

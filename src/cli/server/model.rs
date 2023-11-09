@@ -117,7 +117,7 @@ fn parse_uri_id(id: &str, model: &ModelDefinition) -> Result<TrueType> {
         },
         AttrType::Primitive(other) => {
             if let Ok(val) = parse::<Value>(id) {
-                Ok(TrueType::Primitive(to_true_prim_type(&val, other, &true)?))
+                Ok(TrueType::Primitive(to_true_prim_type(&val, other, true)?))
             } else {
                 Err(Error::new(ErrorKind::InvalidData, "Invalid value for primary key"))
             }
@@ -251,7 +251,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
         if let Some(ty) = model.attributes.get(&key) {
             match ty {
                 AttrType::Primitive(prim_type) => {
-                    match to_true_prim_type(&value, prim_type, &is_required) {
+                    match to_true_prim_type(&value, prim_type, is_required) {
                         Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
                         Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key.0, err)))
                     };
@@ -261,7 +261,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                         Some(arr) => {
                             let mut true_arr: Vec<TruePrimitiveType> = vec!();
                             for val in arr {
-                                match to_true_prim_type(val, &arr_type[0], &is_required) {
+                                match to_true_prim_type(val, &arr_type[0], true) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value.unwrap()),
                                     Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key.0, err)))
                                 };
@@ -441,7 +441,7 @@ mod tests {
             "Expected Error for missing required attributes"
         );
 
-        // test null value
+        // test null value for required attribute
         let invalid_input = r#"
             {
                 "id": 1,
@@ -455,6 +455,23 @@ mod tests {
             parse_record(invalid_input, &movie_model).is_err(),
             "Expected Error for null-valued required attributes"
         );
+
+        // test null values as array entries
+        let invalid_input = r#"
+            {
+                "id": 1,
+                "name": "Natural Born Killers",
+                "year": 1994,
+                "actors": ["Woody Harrelson", null],
+                "recommended": true
+            }
+        "#;
+        assert!(
+            parse_record(invalid_input, &movie_model).is_err(),
+            "Expected Error for array storing null values"
+        );
+
+        // test invalid json
         assert!(
             parse_record("invalid json", &movie_model).is_err(),
             "Expected Error for parsing invalid JSON input"

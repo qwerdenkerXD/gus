@@ -289,7 +289,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
 }
 
 fn add_null_values(mut record: Record, model: &ModelDefinition) -> Record {
-    for (attr_name, _) in &model.attributes {
+    for attr_name in model.attributes.keys() {
         if !record.contains_key(attr_name) {
             record.insert(attr_name.clone(), NULL);
         }

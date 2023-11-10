@@ -20,28 +20,26 @@ use serde_derive::{
 use apollo_compiler::{
     ExecutableDocument,
     GraphQLError,
-    NodeStr,
     Parser,
     Schema,
     Node
 };
 use apollo_compiler::executable::{
     OperationType,
-    OperationRef,
     SelectionSet,
     Operation,
     Selection,
     Field,
-    Value,
     Type
 };
 use apollo_compiler::schema::{
     FieldDefinition,
-    ExtendedType
+    ExtendedType,
+    NamedType
 };
 
 // used functions
-use serde_json::{from_str, to_string_pretty};
+use serde_json::from_str;
 use super::{
     parse_models,
     create_one,
@@ -281,7 +279,7 @@ pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
 }
 
 fn get_executing_operation(document: &ExecutableDocument, operation_name: Option<String>) -> Result<&Node<Operation>, GraphQLReturn> {
-    let mut operations /* impl Iterator<Item = OperationRef<'_>> */ = document.all_operations();
+    let mut operations /* impl Iterator<Item = &'_ Node<Operation>> */ = document.all_operations();
 
     if operations.next().is_none() {
         return Err(GraphQLReturn::from("document does not contain any executable operations"));
@@ -291,7 +289,7 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
     }
 
     match document.get_operation(operation_name.as_deref()) {
-        Ok(o) => Ok(o.definition()),
+        Ok(o) => Ok(o),
         Err(_) => Err(GraphQLReturn::from(format!("operation with name {:?} does not exist", operation_name.unwrap().as_str()).as_str()))
     }
 }
@@ -310,16 +308,16 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &Ex
             "__schema" => {
                 let record = &mut Data::from(vec![
                     (FieldName::from("types"), resolve_type_system(schema)),
-                    (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Query"), schema).unwrap())),
-                    (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Mutation"), schema).unwrap())),
-                    // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&NodeStr::new("Subscription"), schema).unwrap())),
+                    (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Query".into()), schema).unwrap())),
+                    (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Mutation".into()), schema).unwrap())),
+                    // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Subscription".into()), schema).unwrap())),
                     (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
                     (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(Some(vec!())))) // directives currently not supported, so ther are none
                 ]);
-                data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), record, document)));
+                data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), record, document)));
             },
-            "__type" => match resolve_type_definition(&NodeStr::new(field.arguments[0].value.as_str().unwrap()), schema) {
-                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, &field.ty(), &mut res, document))),
+            "__type" => match resolve_type_definition(&NamedType::new_unchecked(field.arguments[0].value.as_str().unwrap().into()), schema) {
+                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut res, document))),
                 None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
             },
             "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.default_type_name().to_string()))))),
@@ -444,7 +442,7 @@ fn resolve_type_system(schema: &Schema) -> FieldValue {
     FieldValue::Objects(types)
 }
 
-fn resolve_type_definition(ty_name: &NodeStr, schema: &Schema) -> Option<Data> {
+fn resolve_type_definition(ty_name: &NamedType, schema: &Schema) -> Option<Data> {
     if ty_name.as_str().starts_with("__") {
         return None; // don't resolve unnecessarily introspection types
     }
@@ -510,7 +508,7 @@ fn resolve_type(ty: &Type, schema: &Schema) -> FieldValue {
             resolved.insert(FieldName::from("ofType"), resolve_type(&Type::Named(name.clone()), schema));
         },
         Type::Named(name) =>{
-            return match resolve_type_definition(&name, schema) {
+            return match resolve_type_definition(name, schema) {
                 Some(res) => FieldValue::Object(res),
                 None => FieldValue::Scalar(NULL)
             }

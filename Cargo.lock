@@ -282,8 +282,8 @@ dependencies = [
 
 [[package]]
 name = "apollo-compiler"
-version = "1.0.0-beta.5"
-source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#6b0eb3eba026bcdd842f3d3f83f43374e0aee18a"
+version = "1.0.0-beta.6"
+source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#366714c15d06c29d2960e7d3022f6ea28c640a70"
 dependencies = [
  "apollo-parser",
  "ariadne",
@@ -300,7 +300,7 @@ dependencies = [
 [[package]]
 name = "apollo-parser"
 version = "0.7.3"
-source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#6b0eb3eba026bcdd842f3d3f83f43374e0aee18a"
+source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#366714c15d06c29d2960e7d3022f6ea28c640a70"
 dependencies = [
  "memchr",
  "rowan",

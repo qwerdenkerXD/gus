@@ -38,6 +38,9 @@ use apollo_compiler::schema::{
     NamedType
 };
 
+// used macros
+use apollo_compiler::name as named_type;
+
 // used functions
 use serde_json::from_str;
 use super::{
@@ -308,9 +311,9 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &Ex
             "__schema" => {
                 let record = &mut Data::from(vec![
                     (FieldName::from("types"), resolve_type_system(schema)),
-                    (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Query".into()), schema).unwrap())),
-                    (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Mutation".into()), schema).unwrap())),
-                    // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(&NamedType::new_unchecked("Subscription".into()), schema).unwrap())),
+                    (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&named_type!("Query"), schema).unwrap())),
+                    (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&named_type!("Mutation"), schema).unwrap())),
+                    // (FieldName::from("subscriptionType"), FieldValue::Object(resolve_type_definition(named_type!("Subscription"), schema).unwrap())),
                     (FieldName::from("subscriptionType"), FieldValue::Scalar(NULL)),
                     (FieldName::from("directives"), FieldValue::Scalar(TrueType::Array(Some(vec!())))) // directives currently not supported, so ther are none
                 ]);

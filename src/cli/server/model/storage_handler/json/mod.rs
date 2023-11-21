@@ -59,7 +59,7 @@ impl JsonStorageHandler {
             Err(err) => {
                 match err.kind() {
                     ErrorKind::NotFound => (),
-                    other => return Err(Error::new(other, format!("Unable to read storage file {}", storage_file.display()).as_str()))
+                    other => return Err(Error::new(other, format!("Unable to read storage file {path}", path=storage_file.display()).as_str()))
                 }
             }
         }
@@ -73,7 +73,7 @@ impl JsonStorageHandler {
     fn save(&self, db: &mut HashMap<ModelName, HashMap<String, Record>>) -> Result<()> {
         let storage_file: &PathBuf = &self.config.storage_file.clone().unwrap_or(PathBuf::from(DEFAULT_STORAGE_FILE));
         if write(storage_file, to_string(db).unwrap()).is_err() {
-            return Err(Error::new(ErrorKind::PermissionDenied, format!("Unable to write data to storage file {}", storage_file.display()).as_str()));
+            return Err(Error::new(ErrorKind::PermissionDenied, format!("Unable to write data to storage file {path}", path=storage_file.display()).as_str()));
         }
 
         Ok(())
@@ -182,14 +182,14 @@ mod tests {
         let mut expected: HashMap<ModelName, HashMap<String, Record>> = HashMap::from([
             (handler.model_name.clone(), HashMap::new())
         ]);
-        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {} when reading not existing storage file", "{<model name>: {}}");
+        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {map} when reading not existing storage file", map="{<model name>: {}}");
 
         // storage file empty
         // create file instead of write because it is not interpreted as existing
         assert!(write(TEST_STORAGE_FILE, "").is_ok(), "Unable to write storage file for tests");
         db = handler.read_db();
         assert!(db.is_ok(), "Unexpected Error after reading from empty storage file");
-        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {} when reading from empty storage file", "{<model name>: {}}");
+        assert_eq!(&db.unwrap(), &expected, "Expected HashMap {map} when reading from empty storage file", map="{<model name>: {}}");
 
         // storage file with data, movie missing
         assert!(write(TEST_STORAGE_FILE, "{\"another\": {\"1\": {\"id\": 1}}}").is_ok(), "Unable to write storage file for tests");
@@ -255,7 +255,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{key} }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {key:?} : {{ \"id\":{key} }} }} }}")).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
             let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
@@ -281,7 +281,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":\"dummy\" }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {key:?} : {{ \"id\":\"dummy\" }} }} }}")).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
             let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
@@ -310,7 +310,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{key} }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {key:?} : {{ \"id\":{key} }} }} }}")).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
             let record = Record::from([
                 (AttrName("id".to_string()), id.clone())

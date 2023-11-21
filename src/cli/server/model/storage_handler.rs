@@ -131,7 +131,7 @@ pub fn configure_storages(args: cli::ConfigureStorages) {
 
     // try to write the config to a file, else write it to stdout
     if write(args.storage_definitions, to_string_pretty(&configs).unwrap()).is_err() {
-        println!("{}", &to_string_pretty(&configs).unwrap());
+        println!("{config}", config=to_string_pretty(&configs).unwrap());
         eprintln!("unable to write file");
     }
 }

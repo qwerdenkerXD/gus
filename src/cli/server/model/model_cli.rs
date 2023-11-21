@@ -56,7 +56,7 @@ pub fn create_model(args: CreateModel) {
         .items(&storage_types)
         .interact()
         .unwrap();
-    let storage_type: StorageType = from_str(format!("\"{}\"", storage_types[storage_type_selection]).as_str()).unwrap();
+    let storage_type: StorageType = from_str(format!("\"{ty}\"", ty=storage_types[storage_type_selection]).as_str()).unwrap();
 
     // define attributes
     loop {
@@ -91,11 +91,11 @@ pub fn create_model(args: CreateModel) {
                 .items(&primitives)
                 .interact()
                 .unwrap();
-            let selected_type = format!("{:?}", primitives[arr_type_selection]);
+            let selected_type: String = format!("{ty:?}", ty=primitives[arr_type_selection]);
             let selected_arr_type: AttrType = AttrType::Array([from_str(&selected_type).unwrap()]);
             attributes.insert(AttrName::try_from(attr_name.as_str()).unwrap(), selected_arr_type);
         } else {
-            let selected_type = format!("{:?}", types[type_selection]);
+            let selected_type: String = format!("{ty:?}", ty=types[type_selection]);
             let selected_attr_type: AttrType = from_str(&selected_type).unwrap();
             attributes.insert(AttrName::try_from(attr_name.as_str()).unwrap(), selected_attr_type);
 
@@ -193,7 +193,7 @@ pub fn create_model(args: CreateModel) {
 
     // try to write the definition to a file, else write it to stdout
     if write(model_file_path, to_string_pretty(&created_model).unwrap()).is_err() {
-        println!("{}", &to_string_pretty(&created_model).unwrap());
+        println!("{model}", model=to_string_pretty(&created_model).unwrap());
         eprintln!("unable to write file");
     }
 }

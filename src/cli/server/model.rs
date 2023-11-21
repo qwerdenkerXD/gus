@@ -148,7 +148,7 @@ pub fn parse_model(model_name: &ModelName) -> Result<ModelDefinition>{
         let mut models: Vec<ModelDefinition> = parse_models(args.modelspath.as_path())?;
         models.retain(|m| m.model_name.plural().camel() == model_name.plural().camel());
         if models.is_empty() {
-            return Err(Error::new(NotFound, format!("model {:?} not found", model_name.0.0)));
+            return Err(Error::new(NotFound, format!("model {name:?} not found", name=model_name.0.0)));
         }
         return Ok(models.remove(0));
     }
@@ -239,7 +239,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
     // check for missing required attributes
     for key in &model.required {
         if !parsed_json.as_ref().unwrap().contains_key(key) {
-            return Err(Error::new(InvalidData, format!("Missing attribute: {:?}", key.0)));
+            return Err(Error::new(InvalidData, format!("Missing attribute: {name:?}", name=key.0)));
         };
     }
 
@@ -253,7 +253,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                 AttrType::Primitive(prim_type) => {
                     match to_true_prim_type(&value, prim_type, is_required) {
                         Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
-                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {err}", key.0)))
+                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {attr:?}, {err}", attr=key.0)))
                     };
                 },
                 AttrType::Array(arr_type) => {
@@ -263,7 +263,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                             for val in arr {
                                 match to_true_prim_type(val, &arr_type[0], true) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value.unwrap()),
-                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {err}", key.0)))
+                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {attr:?}, {err}", attr=key.0)))
                                 };
                             }
                             record.insert(key, TrueType::Array(Some(true_arr)));
@@ -272,14 +272,14 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                             if !is_required && value.is_null() {
                                 record.insert(key, NULL);
                             } else {
-                                return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, expected: Array", key.0)));
+                                return Err(Error::new(InvalidData, format!("Wrong type of attribute {attr:?}, expected: Array", attr=key.0)));
                             }
                         }
                     };
                 },
             }
         } else {
-            return Err(Error::new(InvalidData, format!("Unknown attribute: {:?}", key.0)));
+            return Err(Error::new(InvalidData, format!("Unknown attribute: {attr:?}", attr=key.0)));
         }
     }
 

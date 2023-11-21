@@ -86,23 +86,23 @@ fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
     match cli.command {
         Commands::Start(ref mut start) => {
             if !start.modelspath.as_path().is_dir() {
-                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &start.modelspath.display(), &start.modelspath.display())).format(&mut Cli::command()));
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--models-path <DIR>': '{path}' is not a directory", path=start.modelspath.display())).format(&mut Cli::command()));
             }
             if let Some(path_buf) = &start.storage_definitions {
                 if !path_buf.is_file() {
-                    return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--storage-definitions <FILE>': '{}' is not a file", &path_buf.display(), &path_buf.display())).format(&mut Cli::command()));
+                    return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--storage-definitions <FILE>': '{path}' is not a file", path=path_buf.display())).format(&mut Cli::command()));
                 }
             }
         },
         Commands::CreateModel(ref create) => {
             if !create.modelspath.as_path().is_dir() {
-                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--models-path <DIR>': '{}' is not a directory", &create.modelspath.display(), &create.modelspath.display())).format(&mut Cli::command()));
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--models-path <DIR>': '{path}' is not a directory", path=create.modelspath.display())).format(&mut Cli::command()));
             }
         },
         Commands::ConfigureStorages(ref configure) => {
             let path_buf: &PathBuf = &configure.storage_definitions;
             if path_buf.file_name().is_none() || path_buf.parent().is_none() || !path_buf.parent().unwrap().is_dir() {
-                return Err(ClapError::raw(ValueValidation, format!("invalid path '{}' for '--storage-definitions <FILE>': '{}' is not a file in an existing directory", &path_buf.display(), &path_buf.display())).format(&mut Cli::command()));
+                return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--storage-definitions <FILE>': '{path}' is not a file in an existing directory", path=path_buf.display())).format(&mut Cli::command()));
             }
         }
     }

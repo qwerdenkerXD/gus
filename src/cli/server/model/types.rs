@@ -69,7 +69,7 @@ pub enum TruePrimitiveType {
 impl Display for TrueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TrueType::Array(Some(arr)) => write!(f, "{:?}", arr.iter().map(|p| TrueType::Primitive(Some(p.clone())).to_string()).collect::<Vec<String>>()),
+            TrueType::Array(Some(arr)) => write!(f, "{array:?}", array=arr.iter().map(|p| TrueType::Primitive(Some(p.clone())).to_string()).collect::<Vec<String>>()),
             TrueType::Primitive(Some(prim)) => match prim {
                 TruePrimitiveType::String(string) => write!(f, "{string}"),
                 TruePrimitiveType::Integer(val) => write!(f, "{val}"),
@@ -166,7 +166,7 @@ pub fn validate_model_definition(definition: &ModelDefinition) -> Result<()> {
     }
     for attr in &definition.required {
         if !definition.attributes.contains_key(attr) {
-            return Err(Error::new(ErrorKind::InvalidData, format!("invalid required attribute {:?}", &attr.0)));
+            return Err(Error::new(ErrorKind::InvalidData, format!("invalid required attribute {attr:?}", attr=attr.0)));
         }
     }
 

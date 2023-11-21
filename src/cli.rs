@@ -9,7 +9,7 @@ pub fn run() -> Option<impl std::future::Future<Output = Result<(), std::io::Err
     let cli: Result<Cli, ClapError> = get_validated_args();
     if let Err(err) = cli {
         if err.print().is_err() {
-            eprintln!("{}", err.render());
+            eprintln!("{err}", err=err.render());
         }
         return None;
     }

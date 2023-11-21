@@ -199,7 +199,7 @@ fn create_schema() -> String {
         for model in models {
             let pasc_sing_model_name: &str = &model.model_name.pascal().singular().0.0;
 
-            let mut type_def: String = format!("type {} {{", pasc_sing_model_name);
+            let mut type_def: String = format!("type {pasc_sing_model_name} {{");
             let mut update_one: String = format!(" updateOne{pasc_sing_model_name}(");
             let mut create_one: String = format!(" addOne{pasc_sing_model_name}(");
 
@@ -216,7 +216,7 @@ fn create_schema() -> String {
             for (attr_name, attr_type) in attributes {
                 let gql_type = match attr_type {
                     AttrType::Primitive(prim) => to_gql_type(prim),
-                    AttrType::Array(arr) => format!("[{}!]", to_gql_type(&arr[0])),
+                    AttrType::Array(arr) => format!("[{ty}!]", ty=to_gql_type(&arr[0])),
                 };
                 let attr: &str = attr_name.0.as_str();
                 let attr_ty: &str = gql_type.as_str();
@@ -235,20 +235,20 @@ fn create_schema() -> String {
                     type_def.push('!');
                 }
             }
-            mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", update_one.as_str()));
-            mutation_resolvers.push(format!("{}):{pasc_sing_model_name}!", create_one.as_str()));
+            mutation_resolvers.push(format!("{update_args}):{pasc_sing_model_name}!", update_args=update_one.as_str()));
+            mutation_resolvers.push(format!("{create_args}):{pasc_sing_model_name}!", create_args=create_one.as_str()));
             type_def.push('}');
             type_definitions.push_str(type_def.as_str());
         }
 
         if !query_resolvers.is_empty() {
-            type_definitions.push_str(format!("type Query{{{}}}", query_resolvers.join(" ").as_str()).as_str());
+            type_definitions.push_str(format!("type Query{{{resolvers}}}", resolvers=query_resolvers.join(" ").as_str()).as_str());
         }
         if !mutation_resolvers.is_empty() {
-            type_definitions.push_str(format!("type Mutation{{{}}}", mutation_resolvers.join(" ").as_str()).as_str());
+            type_definitions.push_str(format!("type Mutation{{{resolvers}}}", resolvers=mutation_resolvers.join(" ").as_str()).as_str());
         }
         if !subscription_resolvers.is_empty() {
-            type_definitions.push_str(format!("type Subscription{{{}}}", subscription_resolvers.join(" ").as_str()).as_str());
+            type_definitions.push_str(format!("type Subscription{{{resolvers}}}", resolvers=subscription_resolvers.join(" ").as_str()).as_str());
         }
 
         return type_definitions;
@@ -293,7 +293,7 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
 
     match document.get_operation(operation_name.as_deref()) {
         Ok(o) => Ok(o),
-        Err(_) => Err(GraphQLReturn::from(format!("operation with name {:?} does not exist", operation_name.unwrap().as_str()).as_str()))
+        Err(_) => Err(GraphQLReturn::from(format!("operation with name {name:?} does not exist", name=operation_name.unwrap().as_str()).as_str()))
     }
 }
 
@@ -421,7 +421,7 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
                     },
                     Some(scalar) => data.insert(FieldName::from(sel_field.response_key().as_str()), scalar),
                     None => {
-                        assert_eq!(sel_field.name.as_str(), "__typename", "Unhandled field \"{}\" in graphql request", sel_field.name.as_str());
+                        assert_eq!(sel_field.name.as_str(), "__typename", "Unhandled field \"{field}\" in graphql request", field=sel_field.name.as_str());
                         data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(resolver_ty.inner_named_type().to_string())))));
                     }
                 }

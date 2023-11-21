@@ -334,7 +334,7 @@ mod tests {
                                          .set_payload("")
                                          .to_request();
             let res: ServiceResponse = call_service(&app, req).await;
-            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {endpoint:?}");
         }
 
         // test invalid body
@@ -377,7 +377,7 @@ mod tests {
             let req = TestRequest::get().uri(endpoint)
                                          .to_request();
             let res: ServiceResponse = call_service(&app, req).await;
-            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {endpoint:?}");
         }
 
         post_test();
@@ -420,7 +420,7 @@ mod tests {
             let req = TestRequest::put().uri(endpoint)
                                         .to_request();
             let res: ServiceResponse = call_service(&app, req).await;
-            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {endpoint:?}");
         }
 
         post_test();
@@ -456,7 +456,7 @@ mod tests {
             let req = TestRequest::delete().uri(endpoint)
                                          .to_request();
             let res: ServiceResponse = call_service(&app, req).await;
-            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {:?}", endpoint);
+            assert_eq!(res.status(), bad_endpoint().status(), "Mismatching status code when trying to request the invalid endpoint {endpoint:?}");
         }
 
         post_test();

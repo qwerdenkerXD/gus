@@ -56,7 +56,7 @@ fn visit_dirs(dir: &Path) -> String {
         let entry: DirEntry = entry.unwrap();
         let path: PathBuf = entry.path();
         if path.is_file() {
-            let push_string = |content_type: &str| -> String { format!("        (URN::FileName({:?}.to_string()), Hierarchy::File((include_bytes!({:?}), \"{content_type}\".to_string()))),\n", path.file_name().unwrap(), path.to_str().unwrap()) };
+            let push_string = |content_type: &str| -> String { format!("        (URN::FileName({file_name:?}.to_string()), Hierarchy::File((include_bytes!({file:?}), \"{content_type}\".to_string()))),\n", file_name=path.file_name().unwrap(), file=path.to_str().unwrap()) };
             match path.extension() {
                 Some(ext) => {
                     match ext.to_str().unwrap() {
@@ -77,7 +77,7 @@ fn visit_dirs(dir: &Path) -> String {
                 None => view_rs.push_str(push_string("text/plain").as_str()),
             }
         } else {
-            view_rs.push_str(format!("        (URN::DirName({:?}.to_string()), Hierarchy::Dir(HashMap::from([\n", path.file_name().unwrap()).as_str());
+            view_rs.push_str(format!("        (URN::DirName({dir_name:?}.to_string()), Hierarchy::Dir(HashMap::from([\n", dir_name=path.file_name().unwrap()).as_str());
             view_rs.push_str(visit_dirs(path.as_path()).as_str());
             view_rs.push_str("        ]))),\n");
         }

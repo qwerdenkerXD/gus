@@ -21,7 +21,7 @@ So feel free to try the current state.
 
 Of course you can compile them by yourself for your OS.
 <br>Simply run:<br>
-`cargo install --git https://github.com/qwerdenkerXD/gus`
+`cargo install --locked --git https://github.com/qwerdenkerXD/gus`
 
 I also host an example webserver with the movie model from testing on [Replit](https://gus.qwerdenkerxd.repl.co/api/graphql).
 

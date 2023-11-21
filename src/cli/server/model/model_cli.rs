@@ -206,7 +206,7 @@ impl Validator<String> for AttrNameValidator {
     fn validate(&mut self, input: &String) -> Result<(), Self::Err> {
         match AttrName::try_from(input.as_str()) {
             Ok(_) => Ok(()),
-            Err(err) => Err(format!("{}", err))
+            Err(err) => Err(err.to_string())
         }
     }
 }

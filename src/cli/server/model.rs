@@ -253,7 +253,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                 AttrType::Primitive(prim_type) => {
                     match to_true_prim_type(&value, prim_type, is_required) {
                         Ok(true_prim_value) => record.insert(key, TrueType::Primitive(true_prim_value)),
-                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {}", key.0, err)))
+                        Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of attribute {:?}, {err}", key.0)))
                     };
                 },
                 AttrType::Array(arr_type) => {
@@ -263,7 +263,7 @@ fn parse_record(json: &str, model: &ModelDefinition) -> Result<Record> {
                             for val in arr {
                                 match to_true_prim_type(val, &arr_type[0], true) {
                                     Ok(true_prim_value) => true_arr.push(true_prim_value.unwrap()),
-                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {}", key.0, err)))
+                                    Err(err) => return Err(Error::new(InvalidData, format!("Wrong type of array attribute {:?}, {err}", key.0)))
                                 };
                             }
                             record.insert(key, TrueType::Array(Some(true_arr)));

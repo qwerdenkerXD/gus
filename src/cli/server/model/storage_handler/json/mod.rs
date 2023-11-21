@@ -100,7 +100,7 @@ impl StorageHandler for JsonStorageHandler {
         let data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         match data.get(id_string) {
             Some(record) => Ok(record.clone()),
-            None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {}", id_string).as_str())),
+            None => Err(Error::new(ErrorKind::NotFound, format!("No record found with id: {id_string}").as_str())),
         }
     }
     fn update_one(&self, record: &Record) -> Result<Record> {
@@ -129,7 +129,7 @@ impl StorageHandler for JsonStorageHandler {
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         let record: Option<Record> = data.remove(&id_string);
         if record.is_none() {
-            return Err(Error::new(ErrorKind::NotFound, format!("No record found to remove with id: {}", id_string).as_str()));
+            return Err(Error::new(ErrorKind::NotFound, format!("No record found to remove with id: {id_string}").as_str()));
         }
         db.insert(self.model_name.clone(), data);
         self.save(db)?;
@@ -153,13 +153,13 @@ mod tests {
 
     fn pre_test(file_name: &str) {
         if PathBuf::from(file_name).as_path().is_file() {
-            assert!(remove_file(file_name).is_ok(), "Storage file {} already existing, unable to remove", file_name);
+            assert!(remove_file(file_name).is_ok(), "Storage file {file_name} already existing, unable to remove");
         }
     }
 
     fn post_test(file_name: &str) {
         if PathBuf::from(file_name).as_path().is_file() {
-            assert!(remove_file(file_name).is_ok(), "Unable to remove storage file {} after test", file_name);
+            assert!(remove_file(file_name).is_ok(), "Unable to remove storage file {file_name} after test");
         }
     }
 
@@ -255,7 +255,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{key} }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
             let record = Record::from([
                 (AttrName("id".to_string()), id.clone())
@@ -310,7 +310,7 @@ mod tests {
             }
         };
         for key in ["1", "\"1\"", "true"] {
-            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{} }} }} }}", key, key)).is_ok(), "Unable to write storage file for tests");
+            assert!(write(TEST_STORAGE_FILE, format!("{{\"movie\": {{ {:?} : {{ \"id\":{key} }} }} }}", key)).is_ok(), "Unable to write storage file for tests");
             let id: TrueType = from_str(key).unwrap();
             let record = Record::from([
                 (AttrName("id".to_string()), id.clone())

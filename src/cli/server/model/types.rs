@@ -231,7 +231,7 @@ impl<'de> de::Visitor<'de> for AttrNameVisitor {
     {
         match AttrName::try_from(value) {
             Ok(name) => Ok(name),
-            Err(err) => Err(de::Error::custom(format!("{}", err))),
+            Err(err) => Err(de::Error::custom(err.to_string())),
         }
     }
 }

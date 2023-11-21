@@ -385,7 +385,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &Ex
                         data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields, document)));
                     },
                     Err(err) => errors.append(&mut vec!(GraphQLError {
-                        message: format!("{}", err),
+                        message: err.to_string(),
                         locations: vec!()
                     }))
                 }

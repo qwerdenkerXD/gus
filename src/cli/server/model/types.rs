@@ -7,6 +7,7 @@ use super::StorageType;
 use serde::Deserializer;
 use std::convert::TryFrom;
 use serde_json::Value;
+use std::fmt::Display;
 use serde_derive::{
     Deserialize,
     Serialize
@@ -65,16 +66,16 @@ pub enum TruePrimitiveType {
     // Float(f64),
 }
 
-impl TrueType {
-    pub fn to_string(&self) -> String {
+impl Display for TrueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TrueType::Array(Some(arr)) => format!("{:?}", arr.iter().map(|p| TrueType::Primitive(Some(p.clone())).to_string()).collect::<Vec<String>>()),
+            TrueType::Array(Some(arr)) => write!(f, "{:?}", arr.iter().map(|p| TrueType::Primitive(Some(p.clone())).to_string()).collect::<Vec<String>>()),
             TrueType::Primitive(Some(prim)) => match prim {
-                TruePrimitiveType::String(string) => string.to_string(),
-                TruePrimitiveType::Integer(val) => format!("{}", val),
-                TruePrimitiveType::Boolean(val) => format!("{}", val),
+                TruePrimitiveType::String(string) => write!(f, "{string}"),
+                TruePrimitiveType::Integer(val) => write!(f, "{val}"),
+                TruePrimitiveType::Boolean(val) => write!(f, "{val}"),
             }
-            _ => "null".to_string()
+            _ => write!(f, "null")
         }
     }
 }

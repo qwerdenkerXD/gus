@@ -28,13 +28,12 @@ type ContentHeader = String;
 type ViewFile = &'static [u8];
 type ViewFiles = HashMap<URN, Hierarchy>;
 
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq)]
 enum URN {
     FileName(String),
     DirName(String)
 }
 
-#[derive(Clone)]
 enum Hierarchy {
     File((ViewFile, ContentHeader)),
     Dir(ViewFiles)

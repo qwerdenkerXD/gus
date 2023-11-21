@@ -74,7 +74,7 @@ impl TrueType {
                 TruePrimitiveType::Integer(val) => format!("{}", val),
                 TruePrimitiveType::Boolean(val) => format!("{}", val),
             }
-            none => "null".to_string()
+            _ => "null".to_string()
         }
     }
 }

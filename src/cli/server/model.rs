@@ -78,7 +78,7 @@ pub fn update_one(model_name: &str, id: &str, json: &str) -> Result<Record> {
 
     // update models' required attributes to the necessary
     required.retain(|a| record.get(a).is_some());
-    model.required = required.clone();
+    model.required.append(&mut required);
 
     // parse the record again, this time with correct requirement check
     let mut valid_record: Record = parse_record(json, &model)?;

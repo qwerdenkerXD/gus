@@ -203,7 +203,7 @@ fn create_schema() -> String {
             let mut update_one: String = format!(" updateOne{pasc_sing_model_name}(");
             let mut create_one: String = format!(" addOne{pasc_sing_model_name}(");
 
-            let mut attributes: Vec<(&AttrName, &AttrType)> = model.attributes.iter().collect::<Vec<(&AttrName, &AttrType)>>();
+            let mut attributes: Vec<(&AttrName, &AttrType)> = model.attributes.iter().collect();
             attributes.sort_by(|(a, _), (b, _)| {
                 if a == &&model.primary_key {
                     std::cmp::Ordering::Less

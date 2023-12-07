@@ -282,8 +282,8 @@ dependencies = [
 
 [[package]]
 name = "apollo-compiler"
-version = "1.0.0-beta.7"
-source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#fb5571365203c80142ec90d471d9e20d83f890ec"
+version = "1.0.0-beta.10"
+source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#d048d537ce9e4188c98f7621648d48a36966a759"
 dependencies = [
  "apollo-parser",
  "ariadne",
@@ -300,7 +300,7 @@ dependencies = [
 [[package]]
 name = "apollo-parser"
 version = "0.7.4"
-source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#fb5571365203c80142ec90d471d9e20d83f890ec"
+source = "git+https://github.com/apollographql/apollo-rs.git?branch=main#d048d537ce9e4188c98f7621648d48a36966a759"
 dependencies = [
  "memchr",
  "rowan",
@@ -1640,9 +1640,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
+checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
 dependencies = [
  "getrandom",
  "serde",

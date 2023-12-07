@@ -2,6 +2,8 @@
 use serde::ser;
 
 // used types
+use apollo_compiler::execution::GraphQLError;
+use apollo_compiler::validation::Valid;
 use std::collections::HashMap;
 use super::{
     TruePrimitiveType,
@@ -19,7 +21,6 @@ use serde_derive::{
 };
 use apollo_compiler::{
     ExecutableDocument,
-    GraphQLError,
     Parser,
     Schema,
     Node
@@ -266,22 +267,28 @@ fn to_gql_type(prim_type: &PrimitiveType) -> String {
 
 pub fn handle_gql_post(body: GraphQLPost) -> GraphQLReturn {
     let mut parser = Parser::new(); //.token_limit(...).recursion_limit(...) TODO!
-    let schema: &Schema = &parser.parse_schema(create_schema(), "schema");
-    let document: &ExecutableDocument = &parser.parse_executable(schema, &body.query, "query");
 
-    schema.validate().unwrap();
+    #[cfg(test)]
+    parser.parse_schema(create_schema(), "schema").unwrap().validate().unwrap();
 
-    if let Err(diagnostics) = document.validate(schema) {
-        return GraphQLReturn::from(diagnostics.iter().map(|d| d.to_json()).collect::<Errors>());
-    }
+    let schema: &Valid<Schema> = &Valid::assume_valid(parser.parse_schema(create_schema(), "schema").unwrap());
+    let document: ExecutableDocument = match parser.parse_executable(schema, &body.query, "query") {
+        Ok(doc) => doc,
+        Err(err) => return GraphQLReturn::from(err.errors.iter().map(|d| d.to_json()).collect::<Errors>()),
+    };
 
-    match get_executing_operation(document, body.operationName) {
-        Ok(op) => execute_operation(op, schema, document),
+    let valid_document: &Valid<ExecutableDocument> = &match document.validate(schema) {
+        Ok(valid_doc) => valid_doc,
+        Err(err) => return GraphQLReturn::from(err.errors.iter().map(|d| d.to_json()).collect::<Errors>()),
+    };
+
+    match get_executing_operation(valid_document, body.operationName) {
+        Ok(op) => execute_operation(op, schema, valid_document),
         Err(ret) => ret
     }
 }
 
-fn get_executing_operation(document: &ExecutableDocument, operation_name: Option<String>) -> Result<&Node<Operation>, GraphQLReturn> {
+fn get_executing_operation(document: &Valid<ExecutableDocument>, operation_name: Option<String>) -> Result<&Node<Operation>, GraphQLReturn> {
     let mut operations /* impl Iterator<Item = &'_ Node<Operation>> */ = document.all_operations();
 
     if operations.next().is_none() {
@@ -297,7 +304,7 @@ fn get_executing_operation(document: &ExecutableDocument, operation_name: Option
     }
 }
 
-fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &ExecutableDocument) -> GraphQLReturn {
+fn execute_operation(operation: &Node<Operation>, schema: &Valid<Schema>, document: &Valid<ExecutableDocument>) -> GraphQLReturn {
     let mut data = Data::new();
     let mut errors = Errors::new();
     for root_resolver in &operation.selection_set.selections {
@@ -405,7 +412,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Schema, document: &Ex
     }
 }
 
-fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data, document: &ExecutableDocument) -> Data {
+fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data, document: &Valid<ExecutableDocument>) -> Data {
     let mut data = Data::new();
     for sel in &selection_set.selections {
         match sel {
@@ -434,7 +441,7 @@ fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,
     data
 }
 
-fn resolve_type_system(schema: &Schema) -> FieldValue {
+fn resolve_type_system(schema: &Valid<Schema>) -> FieldValue {
     let mut types: Vec<Data> = vec!();
     for ty_def in schema.types.keys() {
         if let Some(res) = resolve_type_definition(ty_def, schema) {
@@ -445,7 +452,7 @@ fn resolve_type_system(schema: &Schema) -> FieldValue {
     FieldValue::Objects(types)
 }
 
-fn resolve_type_definition(ty_name: &NamedType, schema: &Schema) -> Option<Data> {
+fn resolve_type_definition(ty_name: &NamedType, schema: &Valid<Schema>) -> Option<Data> {
     if ty_name.as_str().starts_with("__") {
         return None; // don't resolve unnecessarily introspection types
     }
@@ -487,7 +494,7 @@ fn resolve_type_definition(ty_name: &NamedType, schema: &Schema) -> Option<Data>
     Some(data)
 }
 
-fn resolve_type(ty: &Type, schema: &Schema) -> FieldValue {
+fn resolve_type(ty: &Type, schema: &Valid<Schema>) -> FieldValue {
     let mut resolved = Data::from(vec![
         (FieldName::from("name"), FieldValue::Scalar(NULL)),
         (FieldName::from("description"), FieldValue::Scalar(NULL)),
@@ -521,7 +528,7 @@ fn resolve_type(ty: &Type, schema: &Schema) -> FieldValue {
     FieldValue::Object(resolved)
 }
 
-fn resolve_field_definition(field: &Node<FieldDefinition>, schema: &Schema) -> Data {  // __Field
+fn resolve_field_definition(field: &Node<FieldDefinition>, schema: &Valid<Schema>) -> Data {  // __Field
     let mut data = Data::new();
     data.insert(FieldName::from("name"), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(field.name.to_string())))));
     match &field.description {

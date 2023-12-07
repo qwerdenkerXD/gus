@@ -76,7 +76,7 @@ impl Data {
     fn insert(&mut self, key: FieldName, value: FieldValue) {
         self.map.push((key, value));
     }
-    fn get(&mut self, key: &FieldName) -> Option<FieldValue> {
+    fn get(&self, key: &FieldName) -> Option<FieldValue> {
         let index: usize = self.map.iter().position(|entry| &entry.0 == key)?;
         Some(self.map[index].1.clone())
     }
@@ -316,7 +316,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Valid<Schema>, docume
         
         match field.name.as_str() {
             "__schema" => {
-                let record = &mut Data::from(vec![
+                let record = &Data::from(vec![
                     (FieldName::from("types"), resolve_type_system(schema)),
                     (FieldName::from("queryType"), FieldValue::Object(resolve_type_definition(&named_type!("Query"), schema).unwrap())),
                     (FieldName::from("mutationType"), FieldValue::Object(resolve_type_definition(&named_type!("Mutation"), schema).unwrap())),
@@ -327,7 +327,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Valid<Schema>, docume
                 data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), record, document)));
             },
             "__type" => match resolve_type_definition(&NamedType::new_unchecked(field.arguments[0].value.as_str().unwrap().into()), schema) {
-                Some(mut res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut res, document))),
+                Some(res) => data.insert(FieldName::from(field.name.as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &res, document))),
                 None => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(NULL))
             },
             "__typename" => data.insert(FieldName::from(field.name.as_str()), FieldValue::Scalar(TrueType::Primitive(Some(TruePrimitiveType::String(operation.operation_type.default_type_name().to_string()))))),
@@ -389,7 +389,7 @@ fn execute_operation(operation: &Node<Operation>, schema: &Valid<Schema>, docume
                         for (attr_name, value) in record {
                             fields.insert(attr_name.0, FieldValue::Scalar(value));
                         }
-                        data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &mut fields, document)));
+                        data.insert(FieldName::from(field.response_key().as_str()), FieldValue::Object(resolve_selection_set_order(&field.selection_set, field.ty(), &fields, document)));
                     },
                     Err(err) => errors.append(&mut vec!(GraphQLError {
                         message: err.to_string(),
@@ -412,18 +412,18 @@ fn execute_operation(operation: &Node<Operation>, schema: &Valid<Schema>, docume
     }
 }
 
-fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &mut Data, document: &Valid<ExecutableDocument>) -> Data {
+fn resolve_selection_set_order(selection_set: &SelectionSet, resolver_ty: &Type,  field_data: &Data, document: &Valid<ExecutableDocument>) -> Data {
     let mut data = Data::new();
     for sel in &selection_set.selections {
         match sel {
             Selection::Field(sel_field) => {
                 match field_data.get(&FieldName::from(sel_field.name.as_str())) {
-                    Some(FieldValue::Objects(mut sub_data)) => {
-                        let resolved: Vec<Data> = sub_data.iter_mut().map(|d| resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), d, document)).collect();
+                    Some(FieldValue::Objects(sub_data)) => {
+                        let resolved: Vec<Data> = sub_data.iter().map(|d| resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), d, document)).collect();
                         data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Objects(resolved));
                     },
-                    Some(FieldValue::Object(mut sub_data)) => {
-                        let resolved: Data = resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), &mut sub_data, document);
+                    Some(FieldValue::Object(sub_data)) => {
+                        let resolved: Data = resolve_selection_set_order(&sel_field.selection_set, sel_field.ty(), &sub_data, document);
                         data.insert(FieldName::from(sel_field.name.as_str()), FieldValue::Object(resolved));
                     },
                     Some(scalar) => data.insert(FieldName::from(sel_field.response_key().as_str()), scalar),

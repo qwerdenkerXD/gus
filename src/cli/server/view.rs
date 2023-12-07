@@ -13,7 +13,7 @@ pub fn get_view_file(uri: &str) -> Option<(ViewFile, ContentHeader)> {
     if uri.ends_with('/') {
         return None;
     }
-    let segments: &mut Vec<&str> = &mut uri.split('/').collect();
+    let mut segments: Vec<&str> = uri.split('/').collect();
     let mut view_files: &ViewFiles = &get_view_files();
     while !segments.is_empty() {
         if segments.len() > 1 {

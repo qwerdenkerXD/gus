@@ -70,7 +70,7 @@ impl JsonStorageHandler {
 
         Ok(db.clone())
     }
-    fn save(&self, db: &mut HashMap<ModelName, HashMap<String, Record>>) -> Result<()> {
+    fn save(&self, db: &HashMap<ModelName, HashMap<String, Record>>) -> Result<()> {
         let storage_file: &PathBuf = &self.config.storage_file.clone().unwrap_or(PathBuf::from(DEFAULT_STORAGE_FILE));
         if write(storage_file, to_string(db).unwrap()).is_err() {
             return Err(Error::new(ErrorKind::PermissionDenied, format!("Unable to write data to storage file {path}", path=storage_file.display()).as_str()));
@@ -83,14 +83,14 @@ impl JsonStorageHandler {
 impl StorageHandler for JsonStorageHandler {
     fn create_one(&self, record: &Record) -> Result<Record> {
         let id_string: String = to_string(record.get(&self.key_attr).unwrap()).unwrap();
-        let db = &mut self.read_db()?;
+        let mut db = self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         if data.get(&id_string).is_some() {
             return Err(Error::new(ErrorKind::AlreadyExists, "A record for the given key already exists, try to update it instead (PUT)"));
         }
         data.insert(id_string, record.clone());
         db.insert(self.model_name.clone(), data);
-        self.save(db)?;
+        self.save(&db)?;
 
         Ok(record.clone())
     }
@@ -105,7 +105,7 @@ impl StorageHandler for JsonStorageHandler {
     }
     fn update_one(&self, record: &Record) -> Result<Record> {
         let id_string: String = to_string(record.get(&self.key_attr).unwrap()).unwrap();
-        let db = &mut self.read_db()?;
+        let mut db = self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         let mut new_record: Record;
         if let Some(orig_record) = data.get(&id_string) {
@@ -119,20 +119,20 @@ impl StorageHandler for JsonStorageHandler {
 
         data.insert(id_string, new_record.clone());
         db.insert(self.model_name.clone(), data);
-        self.save(db)?;
+        self.save(&db)?;
 
         Ok(new_record)
     }
     fn delete_one(&self, id: &TrueType) -> Result<Record> {
         let id_string: String = to_string(id).unwrap();
-        let db = &mut self.read_db()?;
+        let mut db = self.read_db()?;
         let mut data: HashMap<String, Record> = db.get(&self.model_name).unwrap().clone();
         let record: Option<Record> = data.remove(&id_string);
         if record.is_none() {
             return Err(Error::new(ErrorKind::NotFound, format!("No record found to remove with id: {id_string}").as_str()));
         }
         db.insert(self.model_name.clone(), data);
-        self.save(db)?;
+        self.save(&db)?;
 
         Ok(record.unwrap())
     }

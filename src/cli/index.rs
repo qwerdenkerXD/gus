@@ -82,9 +82,9 @@ pub fn get_valid_start_args() -> Option<StartServer> {
     }
 }
 
-fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
-    match cli.command {
-        Commands::Start(ref mut start) => {
+fn validate_args(cli: Cli) -> Result<Cli, ClapError> {
+    match &cli.command {
+        Commands::Start(start) => {
             if !start.modelspath.as_path().is_dir() {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--models-path <DIR>': '{path}' is not a directory", path=start.modelspath.display())).format(&mut Cli::command()));
             }
@@ -94,12 +94,12 @@ fn validate_args(mut cli: Cli) -> Result<Cli, ClapError> {
                 }
             }
         },
-        Commands::CreateModel(ref create) => {
+        Commands::CreateModel(create) => {
             if !create.modelspath.as_path().is_dir() {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--models-path <DIR>': '{path}' is not a directory", path=create.modelspath.display())).format(&mut Cli::command()));
             }
         },
-        Commands::ConfigureStorages(ref configure) => {
+        Commands::ConfigureStorages(configure) => {
             let path_buf: &PathBuf = &configure.storage_definitions;
             if path_buf.file_name().is_none() || path_buf.parent().is_none() || !path_buf.parent().unwrap().is_dir() {
                 return Err(ClapError::raw(ValueValidation, format!("invalid path '{path}' for '--storage-definitions <FILE>': '{path}' is not a file in an existing directory", path=path_buf.display())).format(&mut Cli::command()));
